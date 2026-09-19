@@ -1,0 +1,61 @@
+# Bu fayl Dart kodini statik tahlil qiluvchi analyzer'ni sozlaydi.
+# Buyruq satridan `flutter analyze` orqali ishga tushiriladi.
+
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
+
+  # Xavfsizroq tur tekshiruvi: implicit dynamic va cast'lar xato sifatida belgilanadi.
+  language:
+    strict-casts: true
+    strict-raw-types: true
+
+  errors:
+    # Ishlatilmayotgan importlar va o'zgaruvchilar ogohlantirish emas, xato bo'lsin —
+    # o'lik kod repozitoriyga tushib qolmaydi.
+    unused_import: error
+    unused_local_variable: error
+    unused_element: error
+    unused_field: error
+    # Eskirgan API'lar CI'ni to'xtatmasin, lekin ko'rinib tursin.
+    deprecated_member_use: warning
+
+linter:
+  rules:
+    # --- Uslub va o'qilishi ---
+    always_declare_return_types: true
+    prefer_single_quotes: true
+    prefer_final_locals: true
+    prefer_final_in_for_each: true
+    directives_ordering: true
+    sort_child_properties_last: true
+    unnecessary_parenthesis: true
+    unnecessary_lambdas: true
+    # `avoid_redundant_argument_values` ataylab yoqilmagan: UI kodida
+    # `showText: true` kabi aniq yozilgan qiymatlar niyatni ko'rsatib turadi.
+
+    # --- Xatoliklardan himoya ---
+    avoid_print: true
+    always_use_package_imports: true
+    avoid_empty_else: true
+    avoid_slow_async_io: true
+    cancel_subscriptions: true
+    close_sinks: true
+    throw_in_finally: true
+    unawaited_futures: true
+    use_build_context_synchronously: true
+
+    # --- Flutter'ga xos ---
+    use_key_in_widget_constructors: true
+    sized_box_for_whitespace: true
+    use_colored_box: true
+    use_decorated_box: true
+    avoid_unnecessary_containers: true

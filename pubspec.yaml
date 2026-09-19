@@ -1,0 +1,85 @@
+name: skore_hodimlar
+description: "Skor Xodimlar — Xodimlar davomati tizimi"
+publish_to: 'none'
+version: 1.0.8+15
+
+environment:
+  sdk: ^3.12.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management
+  flutter_bloc: ^8.1.6
+  equatable: ^2.0.5
+
+  # Network
+  dio: ^5.7.0
+
+  # Navigation
+  go_router: ^14.6.1
+
+  # Local Storage
+  shared_preferences: ^2.3.0
+  flutter_secure_storage: ^9.2.2
+
+  # Camera & Media
+  camera: ^0.11.0+2
+  image_picker: ^1.1.2
+
+  # On-device face detection (auto-capture)
+  google_mlkit_face_detection: ^0.13.1
+
+  # Selfie compression + EXIF auto-rotation before upload
+  flutter_image_compress: ^2.3.0
+
+  # Location
+  geolocator: ^13.0.4
+  permission_handler: ^11.3.1
+  flutter_foreground_task: ^9.0.1
+
+  # UI
+  cached_network_image: ^3.4.0
+  google_fonts: ^6.2.1
+  shimmer: ^3.0.0
+  lottie: ^3.1.2
+  flutter_svg: ^2.0.10+1
+
+  # DI
+  get_it: ^8.0.0
+
+  # Functional
+  dartz: ^0.10.1
+
+  # Maps
+  yandex_mapkit: ^4.2.1
+
+  # Utils
+  intl: ^0.20.2
+  url_launcher: ^6.3.0
+  cupertino_icons: ^1.0.8
+  package_info_plus: ^8.1.2
+  firebase_core: ^4.14.0
+  firebase_messaging: ^16.6.0
+  flutter_local_notifications: ^22.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  remove_alpha_ios: true
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/animations/

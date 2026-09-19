@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "519381249779",
+    "project_id": "skor-hodimlar",
+    "storage_bucket": "skor-hodimlar.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:519381249779:android:a207de027f69ffddc91186",
+        "android_client_info": {
+          "package_name": "uz.skor.hodimlar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBTjAEW_4KTcKl_V5kyjeq4R5x11ieYHgU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
