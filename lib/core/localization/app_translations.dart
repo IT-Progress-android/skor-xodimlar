@@ -398,6 +398,16 @@ class AppTranslations {
           'uchinchi shaxslarga berilmaydi va reklamalar uchun foydalanilmaydi.',
       'location_accept': 'Tushundim va roziman',
       'location_decline': 'Hozir emas (Rad etish)',
+      'bg_location_disclosure_title': 'Doimiy joylashuv (Fon rejimi)',
+      'bg_location_disclosure_statement':
+          '"Skor Xodimlar" ilovasi xodimning tashkilot hududida ekanligini '
+          'ish vaqtida avtomatik monitoring qilish va davomatni aniq yuritish uchun '
+          'joylashuv ma\'lumotlarini ilova yopiq bo\'lganda yoki undan '
+          'foydalanilmayotgan paytda ham (fonda) to\'playdi.\n\n'
+          'Ushbu imkoniyat ishlashi uchun keyingi sozlamalar oynasida '
+          '"Har doim ruxsat berish" parametrini tanlang.',
+      'bg_location_open_settings': 'Sozlamalarga o\'tish',
+      'bg_location_cancel': 'Hozir emas (Rad etish)',
       'no_internet_default_message':
           'Ma\'lumotlarni yuklab bo\'lmadi. Tarmoqqa ulanishni tekshirib, '
           'qayta urinib ko\'ring.',
@@ -1032,6 +1042,16 @@ class AppTranslations {
           'не передаются третьим лицам и не используются в рекламных целях.',
       'location_accept': 'Понятно, согласен(на)',
       'location_decline': 'Не сейчас (Отклонить)',
+      'bg_location_disclosure_title': 'Доступ к местоположению в фоновом режиме',
+      'bg_location_disclosure_statement':
+          'Приложение «Skor Xodimlar» собирает данные о местоположении, '
+          'даже когда приложение закрыто или не используется (в фоновом режиме), '
+          'для автоматического учета рабочего времени и контроля нахождения '
+          'сотрудника на рабочем месте.\n\n'
+          'Для включения этой функции в следующем окне настроек '
+          'выберите «Разрешать в любом режиме».',
+      'bg_location_open_settings': 'Перейти в настройки',
+      'bg_location_cancel': 'Не сейчас (Отклонить)',
       'no_internet_default_message':
           'Не удалось загрузить данные. Проверьте подключение к сети и '
           'попробуйте снова.',
@@ -1656,6 +1676,14 @@ class AppTranslations {
           'shared with third parties, and is not used for advertising.',
       'location_accept': 'I understand and agree',
       'location_decline': 'Not now (Decline)',
+      'bg_location_disclosure_title': 'Background Location Access',
+      'bg_location_disclosure_statement':
+          'The "Skor Xodimlar" app collects location data even when the app is '
+          'closed or not in use (in the background) to automatically monitor '
+          'working hours and verify attendance within the organization\'s premises.\n\n'
+          'To enable this, please select "Allow all the time" in the next settings screen.',
+      'bg_location_open_settings': 'Continue to Settings',
+      'bg_location_cancel': 'Not now (Decline)',
       'no_internet_default_message':
           'Could not load the data. Check your connection and try again.',
       'no_internet_reload': 'Reload',
@@ -2280,6 +2308,15 @@ class AppTranslations {
           'колдонулбайт.',
       'location_accept': 'Түшүндүм жана макулмун',
       'location_decline': 'Азыр эмес (Баш тартуу)',
+      'bg_location_disclosure_title': 'Фондук режимде жайгашкан жер',
+      'bg_location_disclosure_statement':
+          '"Skor Xodimlar" колдонмосу колдонмо жабык же колдонулбаган учурда да '
+          '(фондо) жумуш убактысын автоматтык көзөмөлдөө жана кызматкердин '
+          'иш ордунда экенин аныктоо үчүн жайгашкан жерди чогултат.\n\n'
+          'Бул функция иштеши үчүн кийинки жөндөөлөр терезесинде '
+          '"Ар дайым уруксат берүү" опциясын тандаңыз.',
+      'bg_location_open_settings': 'Жөндөөлөргө өтүү',
+      'bg_location_cancel': 'Азыр эмес (Баш тартуу)',
       'no_internet_default_message':
           'Маалыматтарды жүктөп болбоду. Тармакка байланышты текшерип, '
           'кайра аракет кылыңыз.',

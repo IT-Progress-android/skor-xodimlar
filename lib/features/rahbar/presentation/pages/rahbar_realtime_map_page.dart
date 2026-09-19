@@ -8,6 +8,7 @@ import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/utils/avatar_marker_helper.dart';
+import 'package:skore_hodimlar/core/widgets/location_disclosure_dialog.dart';
 import 'package:skore_hodimlar/features/rahbar/data/datasources/rahbar_remote_datasource.dart';
 import 'package:skore_hodimlar/features/rahbar/domain/entities/rahbar_entity.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/pages/rahbar_assign_zone_page.dart';
@@ -127,6 +128,9 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
     try {
       var perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.denied) {
+        if (!mounted) return;
+        final accepted = await LocationDisclosureDialog.show(context);
+        if (!accepted) return;
         perm = await Geolocator.requestPermission();
       }
       if (perm == LocationPermission.whileInUse ||

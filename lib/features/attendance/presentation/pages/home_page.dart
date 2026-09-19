@@ -88,7 +88,12 @@ class _HomePageState extends State<HomePage> {
     final status = await Permission.locationAlways.status;
     if (status.isGranted) return;
 
+    if (!mounted) return;
+    final accepted =
+        await LocationDisclosureDialog.showBackgroundDisclosure(context);
     await prefs.setBool(askedKey, true);
+    if (!accepted) return;
+
     await Permission.locationAlways.request();
   }
 

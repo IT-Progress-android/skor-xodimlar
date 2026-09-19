@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
@@ -47,13 +46,6 @@ class _SplashPageState extends State<SplashPage>
   }
 
   Future<void> _checkAuth() async {
-    try {
-      // iOS only shows one system permission dialog at a time.
-      // Request sequentially so both dialogs appear.
-      await Permission.camera.request();
-      await Permission.locationWhenInUse.request();
-    } catch (_) {}
-
     await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
