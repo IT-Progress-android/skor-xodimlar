@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -104,7 +105,6 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
           // Build staff name -> branch ID mapping from Filial Report (getFilial)
           final rawFiliallar = (filialReport['filiallar'] as List?) ?? const [];
           final Map<String, int> staffNameToBranch = {};
-          List<dynamic> unassignedStaffList = [];
 
           for (final f in rawFiliallar) {
             final fMap = Map<String, dynamic>.from(f as Map);
@@ -116,9 +116,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                 fNom.toLowerCase().contains('biriktirilmagan') ||
                 fNom.toLowerCase().contains('unassigned');
 
-            if (isUnassigned) {
-              unassignedStaffList = fStaff;
-            } else {
+            if (!isUnassigned) {
               int targetBranchId = parsedBranches.isNotEmpty
                   ? (parsedBranches.first['id'] as int)
                   : 1;
@@ -142,21 +140,6 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                 if (stName.isNotEmpty) {
                   staffNameToBranch[stName] = targetBranchId;
                 }
-              }
-            }
-          }
-
-          // Merge unassigned staff into primary branch (IT PROGRESS 1)
-          if (parsedBranches.isNotEmpty) {
-            final primaryBranchId = parsedBranches.first['id'] as int;
-            for (final st in unassignedStaffList) {
-              final stMap = Map<String, dynamic>.from(st as Map);
-              final stName = (stMap['name'] ?? stMap['xodim'] ?? '')
-                  .toString()
-                  .trim()
-                  .toLowerCase();
-              if (stName.isNotEmpty) {
-                staffNameToBranch[stName] = primaryBranchId;
               }
             }
           }
@@ -224,7 +207,31 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
       }
     }
 
-    // 3. Match if branch name contains staff name (e.g. personal assigned zone)
+    // 3. Match by staff GPS coordinates (inside geofence or closest)
+    if (s.lat != null && s.lng != null && s.lat != 0.0 && s.lng != 0.0) {
+      double minDistance = double.infinity;
+      int? closestBranchId;
+      for (final b in _branches) {
+        final bLat = (b['lat'] as num?)?.toDouble() ?? 0.0;
+        final bLng = (b['lng'] as num?)?.toDouble() ?? 0.0;
+        final bRadius = (b['radius'] as num?)?.toDouble() ?? 100.0;
+        if (bLat != 0.0 && bLng != 0.0) {
+          final d = Geolocator.distanceBetween(s.lat!, s.lng!, bLat, bLng);
+          if (d <= bRadius) {
+            return (b['id'] as num?)?.toInt() ?? 0;
+          }
+          if (d < minDistance) {
+            minDistance = d;
+            closestBranchId = (b['id'] as num?)?.toInt();
+          }
+        }
+      }
+      if (closestBranchId != null) {
+        return closestBranchId;
+      }
+    }
+
+    // 4. Match if branch name contains staff name (e.g. personal assigned zone)
     if (staffNameLower.isNotEmpty) {
       for (final b in _branches) {
         final bName = (b['name'] ?? '').toString().trim().toLowerCase();
@@ -237,7 +244,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
       }
     }
 
-    // 4. Default to first branch
+    // 5. Default to first branch
     return (_branches.first['id'] as num?)?.toInt() ?? 0;
   }
 
