@@ -1296,14 +1296,20 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
 
   Future<void> _loadStaffHistory(_StaffMapItem staff) async {
     setState(() => _loadingHistory = true);
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    debugPrint('════════════════════════════════════════════════════════════════');
+    debugPrint('🚀 [HARAKAT TARIXI] So\'rov boshlandi');
+    debugPrint('👤 Xodim: ${staff.name} (ID: ${staff.id})');
+    debugPrint('📅 Sana: $today');
+    debugPrint(
+      '🌐 Endpoint: ${ApiConstants.baseUrl}${ApiConstants.rahbarLokatsiyaTarix}/${staff.id}?sana=$today',
+    );
     try {
-      debugPrint(
-        '🔍 [HISTORY] Fetching movement history for staffId: ${staff.id} (${staff.name})',
-      );
       final data = await sl<RahbarRemoteDataSource>().getStaffLocationHistory(
         xodimId: staff.id,
+        sana: today,
       );
-      debugPrint('📍 [HISTORY RESPONSE]: $data');
+      debugPrint('📦 [BACKEND RAW DATA]: $data');
 
       final dynamic rawList = data['nuqtalar'] ??
           data['data'] ??
@@ -1315,7 +1321,8 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
 
       final List<_LocationHistoryPoint> points = [];
       if (rawList is List) {
-        for (final item in rawList) {
+        for (int i = 0; i < rawList.length; i++) {
+          final item = rawList[i];
           if (item is Map) {
             final m = Map<String, dynamic>.from(item);
             final lat = _parseDouble(m['lat'] ?? m['latitude']);
@@ -1341,19 +1348,41 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
         }
       }
 
+      debugPrint('📊 Jami qabul qilingan GPS nuqtalar soni: ${points.length} ta');
+
       // If backend history has 0 points, but staff has current GPS coords:
       // provide current position as single point
       if (points.isEmpty && staff.lat != 0.0 && staff.lng != 0.0) {
+        debugPrint(
+          'ℹ️ [FALLBACK] Backend tarixi bo\'sh, xodimning hozirgi joylashuvi bitta nuqta sifatida olindi: lat=${staff.lat}, lng=${staff.lng}',
+        );
         points.add(
           _LocationHistoryPoint(
             lat: staff.lat,
             lng: staff.lng,
-            vaqt: staff.checkIn.isNotEmpty ? staff.checkIn : '',
+            vaqt: staff.checkIn.isNotEmpty ? staff.checkIn : 'Hozir',
             holat: staff.holat,
             inside: staff.isInside,
           ),
         );
       }
+
+      if (points.isNotEmpty) {
+        debugPrint(
+          '🟢 [START NUQTA (A)]: lat=${points.first.lat}, lng=${points.first.lng}, vaqt=${points.first.vaqt}',
+        );
+        if (points.length > 1) {
+          debugPrint(
+            '🔴 [OXIRGI NUQTA (B)]: lat=${points.last.lat}, lng=${points.last.lng}, vaqt=${points.last.vaqt}',
+          );
+          debugPrint(
+            '🛣️ [POLYLINE CHIZILDI]: ${points.length} ta nuqta xaritada tutashtirildi',
+          );
+        }
+      } else {
+        debugPrint('⚠️ [OGOHLANTIRISH]: Bu xodim uchun bugungi harakat ma\'lumotlari topilmadi.');
+      }
+      debugPrint('════════════════════════════════════════════════════════════════');
 
       if (!mounted) return;
       setState(() {
@@ -1437,6 +1466,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
   }
 
   void _clearStaffHistory() {
+    debugPrint('🧹 [HARAKAT TARIXI] Tozalandi va filialga qaytildi');
     setState(() {
       _historyPoints = [];
       _historyStaffName = null;
@@ -1462,6 +1492,17 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
   }
 
   void _showStaffBottomSheet(_StaffMapItem staff, Point point) {
+    debugPrint('════════════════════════════════════════════════════════════════');
+    debugPrint('👤 [XARITA - XODIM BOSILDI]: ${staff.name} (ID: ${staff.id})');
+    debugPrint('🏢 Bo\'lim: ${staff.bolim}, Lavozim: ${staff.lavozim}');
+    debugPrint('📍 Joriy koordinata: lat=${staff.lat}, lng=${staff.lng}');
+    debugPrint(
+      '⏰ Kelgan: ${staff.checkIn}, Ketgan: ${staff.checkOut}, Holati: ${staff.attendanceStatus}',
+    );
+    debugPrint(
+      '🏢 Hudud ichidami: ${staff.isInside ? "HA (Hududda)" : "YO\'Q (Tashqarida)"}',
+    );
+    debugPrint('════════════════════════════════════════════════════════════════');
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,

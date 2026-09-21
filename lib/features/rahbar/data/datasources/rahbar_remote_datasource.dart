@@ -269,8 +269,14 @@ class RahbarRemoteDataSourceImpl implements RahbarRemoteDataSource {
     required int xodimId,
     String? sana,
   }) {
+    final querySana =
+        sana ?? DateTime.now().toIso8601String().substring(0, 10);
+    debugPrint(
+      '🌐 [API REQ] GET ${ApiConstants.baseUrl}${ApiConstants.rahbarLokatsiyaTarix}/$xodimId?sana=$querySana',
+    );
     return _getMap('${ApiConstants.rahbarLokatsiyaTarix}/$xodimId', {
-      'sana': ?sana,
+      'sana': querySana,
+      'date': querySana,
     });
   }
 
