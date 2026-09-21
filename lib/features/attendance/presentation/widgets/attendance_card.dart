@@ -5,6 +5,23 @@ import 'package:skore_hodimlar/core/utils/date_formatter.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
 import 'package:skore_hodimlar/features/attendance/domain/entities/attendance_entity.dart';
 
+/// Sana stringidan (masalan "2026-09-21") hafta kunini aniqlab,
+/// ilova tiliga mos tarjima qaytaradi.
+/// Backend'dan kelayotgan o'zbekcha hafta kuni matni o'rniga
+/// ishlatiladi — bu aralash til muammosini bartaraf etadi.
+String? _localizedWeekday(BuildContext context, String dateStr) {
+  try {
+    final date = DateTime.tryParse(dateStr);
+    if (date == null) return null;
+    const keys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    final key = keys[date.weekday - 1]; // weekday: 1=Mon..7=Sun
+    return context.tr('weekday_$key');
+  } catch (_) {
+    return null;
+  }
+}
+
+
 class AttendanceCard extends StatefulWidget {
   final AttendanceReportEntity report;
 
@@ -20,11 +37,14 @@ class _AttendanceCardState extends State<AttendanceCard> {
   @override
   Widget build(BuildContext context) {
     final report = widget.report;
-    final bool isPresent = report.status.toLowerCase().contains('kelgan');
-    final bool isLate =
-        report.delay != null &&
-        report.delay!.isNotEmpty &&
-        report.delay!.toLowerCase() != 'yo\'q';
+    final bool isPresent =
+        report.checkIn != null ||
+        report.status.toLowerCase().contains('kelgan') ||
+        report.status.toLowerCase().contains('пришёл') ||
+        report.status.toLowerCase().contains('присутствовал') ||
+        report.status.toLowerCase().contains('present');
+    final bool isLate = report.delay != null && report.delay!.isNotEmpty;
+
     final bool hasAriza = report.ariza != null;
 
     // Status-based gradient colors
@@ -59,12 +79,14 @@ class _AttendanceCardState extends State<AttendanceCard> {
       ];
     }
 
-    // Date display
+    // Date display — hafta kunini backend'dan emas, sanadan o'zimiz
+    // hisoblaymiz. Shunda til o'zgarganda ham to'g'ri tarjima chiqadi.
     final String rawDate = report.date.trim();
     String displayDate;
     if (rawDate.isNotEmpty) {
-      displayDate = report.weekday != null && report.weekday!.isNotEmpty
-          ? '$rawDate · ${report.weekday}'
+      final localizedWeekday = _localizedWeekday(context, rawDate);
+      displayDate = localizedWeekday != null
+          ? '$rawDate · $localizedWeekday'
           : rawDate;
     } else {
       displayDate = context.tr('today');
@@ -222,11 +244,9 @@ class _AttendanceCardState extends State<AttendanceCard> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        report.status.isNotEmpty
-                            ? report.status
-                            : (isPresent
-                                  ? context.tr('attendance_present')
-                                  : context.tr('attendance_absent')),
+                        isPresent
+                            ? context.tr('attendance_present')
+                            : context.tr('attendance_absent'),
                         style: GoogleFonts.outfit(
                           color: isPresent
                               ? Colors.green.shade800

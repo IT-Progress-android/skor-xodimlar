@@ -1,6 +1,19 @@
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/features/attendance/domain/entities/attendance_entity.dart';
 
+/// Backend kechikish yo'q degan ma'noni turli tillarda yuborganda
+/// (masalan "Yo'q", "Нет", "0") uni `null` ga aylantiradi.
+/// Shunda UI da "Опоздание: Yo'q" kabi aralash matn chiqmaydi.
+String? _sanitizeDelay(String? raw) {
+  if (raw == null) return null;
+  final t = raw.trim().toLowerCase();
+  if (t.isEmpty || t == '0' || t == "yo'q" || t == 'нет' || t == 'no') {
+    return null;
+  }
+  return raw.trim();
+}
+
+
 class CheckTimeModel extends CheckTimeEntity {
   const CheckTimeModel({super.time, super.device});
 
@@ -179,7 +192,7 @@ class TodayAttendanceModel extends TodayAttendanceEntity {
           .toString(),
       checkIn: timeFrom(today['check_in'], json['check_in']),
       checkOut: timeFrom(today['check_out'], json['check_out']),
-      delay: (first['delay'] ?? json['delay'])?.toString(),
+      delay: _sanitizeDelay((first['delay'] ?? json['delay'])?.toString()),
       eventsCount: (json['events_count'] as int?) ?? reports.length,
       next: (today['next'] ?? json['next'])?.toString(),
       inside: insideVal,
@@ -322,15 +335,9 @@ class AttendanceReportModel extends AttendanceReportEntity {
     final checkOutStr = parseTime(
       json['check_out'] ?? json['checkOut'] ?? json['out'] ?? json['ketgan'],
     );
-    final rawDelay = (json['delay'] ?? json['kechikish'])?.toString();
-
-    String? delayStr;
-    if (rawDelay != null &&
-        rawDelay.trim().isNotEmpty &&
-        rawDelay.trim().toLowerCase() != 'yo\'q' &&
-        rawDelay.trim() != '0') {
-      delayStr = rawDelay;
-    }
+    final delayStr = _sanitizeDelay(
+      (json['delay'] ?? json['kechikish'])?.toString(),
+    );
 
     final lateM = (json['late_minutes'] as num?)?.toInt();
     final workedM = (json['worked_minutes'] as num?)?.toInt();
