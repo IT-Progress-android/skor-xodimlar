@@ -103,6 +103,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
   final TextEditingController _searchController = TextEditingController();
   Map<String, int> _staffNameToBranchId = {};
   Map<int, int> _staffIdToBranchId = {};
+  List<Map<String, dynamic>> _rawFiliallar = [];
 
   @override
   void initState() {
@@ -216,9 +217,11 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
 
       // Build staff name and ID -> branch ID mapping from Filial Report (getFilial)
       final rawFiliallar = (filialReport['filiallar'] as List?) ?? const [];
+      _rawFiliallar = rawFiliallar
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
       final Map<String, int> staffNameToBranch = {};
       final Map<int, int> staffIdToBranch = {};
-      _BranchLocation? unassignedBranchObj;
 
       for (final f in rawFiliallar) {
         final fMap = Map<String, dynamic>.from(f as Map);
@@ -234,29 +237,18 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
             fNom.toLowerCase().contains('unassigned');
 
         if (isUnassigned) {
-          if (fStaff.isNotEmpty) {
-            final unassignedName =
-                fNom.isNotEmpty ? fNom : 'Filial biriktirilmagan';
-            unassignedBranchObj = _BranchLocation(
-              id: 0,
-              name: unassignedName,
-              lat: 0.0,
-              lng: 0.0,
-              radius: 0.0,
-            );
-            for (final st in fStaff) {
-              final stMap = Map<String, dynamic>.from(st as Map);
-              final stName = (stMap['name'] ?? stMap['xodim'] ?? '')
-                  .toString()
-                  .trim()
-                  .toLowerCase();
-              if (stName.isNotEmpty) {
-                staffNameToBranch[stName] = 0;
-              }
-              final stId = _parseInt(stMap['id'] ?? stMap['staff_id']);
-              if (stId > 0) {
-                staffIdToBranch[stId] = 0;
-              }
+          for (final st in fStaff) {
+            final stMap = Map<String, dynamic>.from(st as Map);
+            final stName = (stMap['name'] ?? stMap['xodim'] ?? '')
+                .toString()
+                .trim()
+                .toLowerCase();
+            if (stName.isNotEmpty) {
+              staffNameToBranch[stName] = 0;
+            }
+            final stId = _parseInt(stMap['id'] ?? stMap['staff_id']);
+            if (stId > 0) {
+              staffIdToBranch[stId] = 0;
             }
           }
         } else {
@@ -304,9 +296,6 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
       _staffNameToBranchId = staffNameToBranch;
       _staffIdToBranchId = staffIdToBranch;
       parsedBranches.sort((a, b) => a.id.compareTo(b.id));
-      if (unassignedBranchObj != null) {
-        parsedBranches.add(unassignedBranchObj);
-      }
       _branches = parsedBranches;
 
       final List<_StaffMapItem> parsedStaff = [];
@@ -687,6 +676,38 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
       _buildMapObjects();
     });
     _moveCameraToBranch();
+
+    if (index >= 0 && index < _branches.length) {
+      final b = _branches[index];
+      final staffInThisBranch = _allStaff
+          .where((s) => _isStaffInCurrentBranch(s, b))
+          .toList();
+
+      debugPrint('════════════════════════════════════════════════════════════════');
+      debugPrint('🏢 [XARITA - FILIAL BOSILDI]: ${b.name} (ID: ${b.id})');
+      debugPrint('📍 Koordinatalar: lat=${b.lat}, lng=${b.lng}, radius=${b.radius}m');
+      debugPrint('👥 Biriktirilgan xodimlar: ${staffInThisBranch.length} nafar');
+      debugPrint('────────────────────────────────────────────────────────────────');
+      for (int i = 0; i < staffInThisBranch.length; i++) {
+        final s = staffInThisBranch[i];
+        debugPrint(
+          ' #${i + 1} ${s.name} (ID: ${s.id}) | Bo\'lim: ${s.bolim} | Lavozim: ${s.lavozim}\n'
+          '     Kelish: ${s.checkIn} | Ketish: ${s.checkOut} | Status: ${s.status} | Davomat: ${s.attendanceStatus}\n'
+          '     Holat: ${s.holat} | Masofa: ${s.distanceMeters.toStringAsFixed(1)}m | GPS: lat=${s.lat}, lng=${s.lng}\n'
+          '     Oxirgi vaqt: ${s.lastUpdated ?? "--"}',
+        );
+      }
+      for (final rf in _rawFiliallar) {
+        final rNom = (rf['nom'] ?? rf['name'] ?? '').toString().toLowerCase();
+        final rId = rf['id'] ?? rf['filial_id'] ?? rf['location_id'];
+        if (rId == b.id ||
+            rNom == b.name.toLowerCase() ||
+            rNom.contains(b.name.toLowerCase())) {
+          debugPrint('📦 [BACKEND RAW DATA]: $rf');
+        }
+      }
+      debugPrint('════════════════════════════════════════════════════════════════');
+    }
   }
 
   Future<void> _generateMarkerBytes() async {

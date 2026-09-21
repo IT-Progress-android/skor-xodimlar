@@ -37,6 +37,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
   List<Map<String, dynamic>> _branches = [];
   List<RahbarStaffAttendanceEntity> _kundalikStaffList = [];
   Map<String, int> _staffNameToBranchId = {};
+  List<Map<String, dynamic>> _rawFiliallar = [];
   final _fmt = DateFormat('yyyy-MM-dd');
   final _displayFmt = DateFormat('dd.MM.yyyy');
 
@@ -103,8 +104,10 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
 
           // Build staff name -> branch ID mapping from Filial Report (getFilial)
           final rawFiliallar = (filialReport['filiallar'] as List?) ?? const [];
+          _rawFiliallar = rawFiliallar
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
           final Map<String, int> staffNameToBranch = {};
-          Map<String, dynamic>? unassignedBranch;
 
           for (final f in rawFiliallar) {
             final fMap = Map<String, dynamic>.from(f as Map);
@@ -117,23 +120,14 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                 fNom.toLowerCase().contains('unassigned');
 
             if (isUnassigned) {
-              if (fStaff.isNotEmpty) {
-                unassignedBranch = {
-                  'id': 0,
-                  'name': fNom.isNotEmpty ? fNom : 'Filial biriktirilmagan',
-                  'lat': 0.0,
-                  'lng': 0.0,
-                  'radius': 0.0,
-                };
-                for (final st in fStaff) {
-                  final stMap = Map<String, dynamic>.from(st as Map);
-                  final stName = (stMap['name'] ?? stMap['xodim'] ?? '')
-                      .toString()
-                      .trim()
-                      .toLowerCase();
-                  if (stName.isNotEmpty) {
-                    staffNameToBranch[stName] = 0;
-                  }
+              for (final st in fStaff) {
+                final stMap = Map<String, dynamic>.from(st as Map);
+                final stName = (stMap['name'] ?? stMap['xodim'] ?? '')
+                    .toString()
+                    .trim()
+                    .toLowerCase();
+                if (stName.isNotEmpty) {
+                  staffNameToBranch[stName] = 0;
                 }
               }
             } else {
@@ -169,9 +163,6 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
             (a, b) =>
                 ((a['id'] as int?) ?? 0).compareTo((b['id'] as int?) ?? 0),
           );
-          if (unassignedBranch != null) {
-            parsedBranches.add(unassignedBranch);
-          }
           _branches = parsedBranches;
           if (_branches.isNotEmpty &&
               (_selectedFilialId == null ||
@@ -256,6 +247,41 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
 
     // 5. Default to first branch
     return (_branches.first['id'] as num?)?.toInt() ?? 0;
+  }
+
+  void _logBranchInfo(
+    Map<String, dynamic> b,
+    List<RahbarStaffAttendanceEntity> allList,
+  ) {
+    final id = b['id'] as int;
+    final name = (b['name'] ?? 'Filial').toString();
+    final staffInBranch = allList
+        .where((s) => _isStaffInBranch(s, id))
+        .toList();
+
+    debugPrint('════════════════════════════════════════════════════════════════');
+    debugPrint('🏢 [DASHBOARD - FILIAL BOSILDI]: $name (ID: $id)');
+    debugPrint('📍 Koordinatalar: lat=${b['lat']}, lng=${b['lng']}, radius=${b['radius']}m');
+    debugPrint('👥 Biriktirilgan xodimlar soni: ${staffInBranch.length} nafar');
+    debugPrint('────────────────────────────────────────────────────────────────');
+    for (int i = 0; i < staffInBranch.length; i++) {
+      final s = staffInBranch[i];
+      debugPrint(
+        ' #${i + 1} ${s.name} (ID: ${s.id}) | Bo\'lim: ${s.bolim} | Lavozim: ${s.lavozim}\n'
+        '     Kelish: ${s.checkIn ?? "--"} | Ketish: ${s.checkOut ?? "--"} | Status: ${s.status} | Filial: ${s.filialName ?? "--"} (ID: ${s.filialId})\n'
+        '     GPS: lat=${s.lat}, lng=${s.lng}',
+      );
+    }
+    for (final f in _rawFiliallar) {
+      final fNom = (f['nom'] ?? f['name'] ?? '').toString().toLowerCase();
+      final fId = f['id'] ?? f['filial_id'] ?? f['location_id'];
+      if (fId == id ||
+          fNom == name.toLowerCase() ||
+          fNom.contains(name.toLowerCase())) {
+        debugPrint('📦 [BACKEND RAW DATA]: $f');
+      }
+    }
+    debugPrint('════════════════════════════════════════════════════════════════');
   }
 
   bool _hasCheckIn(RahbarStaffAttendanceEntity item) =>
@@ -611,8 +637,10 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                                 title: '📍 $name',
                                 count: count,
                                 isSelected: _selectedFilialId == id,
-                                onTap: () =>
-                                    setState(() => _selectedFilialId = id),
+                                onTap: () {
+                                  setState(() => _selectedFilialId = id);
+                                  _logBranchInfo(b, _kundalikStaffList);
+                                },
                               ),
                             );
                           }).toList(),

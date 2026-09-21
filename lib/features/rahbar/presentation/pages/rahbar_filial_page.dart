@@ -41,9 +41,8 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
         builder: (context, data) {
           final rawFiliallar = (data['filiallar'] as List?) ?? const [];
 
-          // Separate valid branches from "Filial biriktirilmagan"
-          final List<Map<String, dynamic>> validBranches = [];
-          Map<String, dynamic>? unassignedBranch;
+          // Only show real physical branches ("faqat bor filiallar")
+          final List<Map<String, dynamic>> filiallar = [];
 
           for (final item in rawFiliallar) {
             final f = Map<String, dynamic>.from(item as Map);
@@ -54,33 +53,8 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
                 nom.toLowerCase().contains('unassigned') ||
                 nom.toLowerCase() == 'null';
 
-            if (isUnassigned) {
-              unassignedBranch = f;
-            } else {
-              validBranches.add(f);
-            }
-          }
-
-          final List<Map<String, dynamic>> filiallar = List.from(validBranches);
-          if (unassignedBranch != null) {
-            final unassignedStaff =
-                (unassignedBranch['xodimlar'] as List?) ?? [];
-            final unassignedJami =
-                (unassignedBranch['jami'] as num?)?.toInt() ??
-                unassignedStaff.length;
-            if (unassignedJami > 0 || unassignedStaff.isNotEmpty) {
-              filiallar.add({
-                ...unassignedBranch,
-                'nom': (unassignedBranch['nom'] ?? '')
-                        .toString()
-                        .trim()
-                        .isNotEmpty
-                    ? unassignedBranch['nom']
-                    : 'Filial biriktirilmagan',
-                'jami': unassignedJami,
-                'kelgan': (unassignedBranch['kelgan'] as num?)?.toInt() ?? 0,
-                'xodimlar': unassignedStaff,
-              });
+            if (!isUnassigned) {
+              filiallar.add(f);
             }
           }
 
@@ -106,6 +80,23 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
                     _expanded.remove(index);
                   }
                 });
+                if (isOpen && index >= 0 && index < filiallar.length) {
+                  final f = filiallar[index];
+                  final nom = f['nom'] ?? f['name'] ?? 'Filial';
+                  final jami = f['jami'];
+                  final kelgan = f['kelgan'];
+                  final xodimlar = (f['xodimlar'] as List?) ?? const [];
+                  debugPrint('════════════════════════════════════════════════════════════════');
+                  debugPrint('🏢 [FILIAL SAHIFA - FILIAL OCHILDI]: $nom');
+                  debugPrint('👥 Jami: $jami | Kelgan: $kelgan | Xodimlar ro\'yxati soni: ${xodimlar.length}');
+                  debugPrint('────────────────────────────────────────────────────────────────');
+                  for (int i = 0; i < xodimlar.length; i++) {
+                    final x = xodimlar[i];
+                    debugPrint(' #${i + 1} $x');
+                  }
+                  debugPrint('📦 [BACKEND RAW FILIAL]: $f');
+                  debugPrint('════════════════════════════════════════════════════════════════');
+                }
               },
               children: List.generate(filiallar.length, (index) {
                 final f = filiallar[index];

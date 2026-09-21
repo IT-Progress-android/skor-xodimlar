@@ -37,6 +37,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
   int? _selectedFilialId;
   List<Map<String, dynamic>> _branches = [];
   Map<String, int> _staffNameToBranchId = {};
+  List<Map<String, dynamic>> _rawFiliallar = [];
   final DateFormat _fmt = DateFormat('yyyy-MM-dd');
   final DateFormat _displayFmt = DateFormat('dd.MM.yyyy');
 
@@ -93,8 +94,10 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
 
           // Build staff name -> branch ID mapping from Filial Report (getFilial)
           final rawFiliallar = (filialReport['filiallar'] as List?) ?? const [];
+          _rawFiliallar = rawFiliallar
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
           final Map<String, int> staffNameToBranch = {};
-          Map<String, dynamic>? unassignedBranch;
 
           for (final f in rawFiliallar) {
             final fMap = Map<String, dynamic>.from(f as Map);
@@ -107,23 +110,14 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                 fNom.toLowerCase().contains('unassigned');
 
             if (isUnassigned) {
-              if (fStaff.isNotEmpty) {
-                unassignedBranch = {
-                  'id': 0,
-                  'name': fNom.isNotEmpty ? fNom : 'Filial biriktirilmagan',
-                  'lat': 0.0,
-                  'lng': 0.0,
-                  'radius': 0.0,
-                };
-                for (final st in fStaff) {
-                  final stMap = Map<String, dynamic>.from(st as Map);
-                  final stName = (stMap['name'] ?? stMap['xodim'] ?? '')
-                      .toString()
-                      .trim()
-                      .toLowerCase();
-                  if (stName.isNotEmpty) {
-                    staffNameToBranch[stName] = 0;
-                  }
+              for (final st in fStaff) {
+                final stMap = Map<String, dynamic>.from(st as Map);
+                final stName = (stMap['name'] ?? stMap['xodim'] ?? '')
+                    .toString()
+                    .trim()
+                    .toLowerCase();
+                if (stName.isNotEmpty) {
+                  staffNameToBranch[stName] = 0;
                 }
               }
             } else {
@@ -159,9 +153,6 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
             (a, b) =>
                 ((a['id'] as int?) ?? 0).compareTo((b['id'] as int?) ?? 0),
           );
-          if (unassignedBranch != null) {
-            parsedBranches.add(unassignedBranch);
-          }
           _branches = parsedBranches;
           if (_branches.isNotEmpty &&
               (_selectedFilialId == null ||
@@ -242,6 +233,41 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
 
     // 5. Default to primary branch
     return (allBranches.first['id'] as num?)?.toInt() ?? 0;
+  }
+
+  void _logBranchInfo(
+    Map<String, dynamic> b,
+    List<RahbarStaffAttendanceEntity> allList,
+  ) {
+    final id = b['id'] as int;
+    final name = (b['name'] ?? 'Filial').toString();
+    final staffInBranch = allList
+        .where((s) => _isStaffInBranch(s, id, _branches))
+        .toList();
+
+    debugPrint('════════════════════════════════════════════════════════════════');
+    debugPrint('🏢 [KUNDALIK - FILIAL BOSILDI]: $name (ID: $id)');
+    debugPrint('📍 Koordinatalar: lat=${b['lat']}, lng=${b['lng']}, radius=${b['radius']}m');
+    debugPrint('👥 Biriktirilgan xodimlar soni: ${staffInBranch.length} nafar');
+    debugPrint('────────────────────────────────────────────────────────────────');
+    for (int i = 0; i < staffInBranch.length; i++) {
+      final s = staffInBranch[i];
+      debugPrint(
+        ' #${i + 1} ${s.name} (ID: ${s.id}) | Bo\'lim: ${s.bolim} | Lavozim: ${s.lavozim}\n'
+        '     Kelish: ${s.checkIn ?? "--"} | Ketish: ${s.checkOut ?? "--"} | Status: ${s.status} | Filial: ${s.filialName ?? "--"} (ID: ${s.filialId})\n'
+        '     GPS: lat=${s.lat}, lng=${s.lng}',
+      );
+    }
+    for (final f in _rawFiliallar) {
+      final fNom = (f['nom'] ?? f['name'] ?? '').toString().toLowerCase();
+      final fId = f['id'] ?? f['filial_id'] ?? f['location_id'];
+      if (fId == id ||
+          fNom == name.toLowerCase() ||
+          fNom.contains(name.toLowerCase())) {
+        debugPrint('📦 [BACKEND RAW DATA]: $f');
+      }
+    }
+    debugPrint('════════════════════════════════════════════════════════════════');
   }
 
   Future<void> _pickDate() async {
@@ -512,29 +538,8 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
             allList = state.list;
           }
 
-          // Merge branches from backend + attendance
-          final List<Map<String, dynamic>> branchList = [];
-          final Set<int> addedIds = {};
-
-          for (final loc in _branches) {
-            final id = (loc['id'] as num?)?.toInt() ?? (branchList.length + 1);
-            if (!addedIds.contains(id)) {
-              addedIds.add(id);
-              branchList.add(loc);
-            }
-          }
-          for (final st in allList) {
-            if (st.filialId != null && !addedIds.contains(st.filialId)) {
-              addedIds.add(st.filialId!);
-              branchList.add({
-                'id': st.filialId!,
-                'name': st.filialName ?? 'Filial #${st.filialId}',
-                'lat': 0.0,
-                'lng': 0.0,
-                'radius': 100.0,
-              });
-            }
-          }
+          // Faqat bor filiallar
+          final List<Map<String, dynamic>> branchList = _branches;
 
           final int activeBranchId =
               _selectedFilialId ??
@@ -651,8 +656,10 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                                 title: '📍 $name',
                                 count: count,
                                 isSelected: activeBranchId == id,
-                                onTap: () =>
-                                    setState(() => _selectedFilialId = id),
+                                onTap: () {
+                                  setState(() => _selectedFilialId = id);
+                                  _logBranchInfo(b, allList);
+                                },
                               ),
                             );
                           }).toList(),
