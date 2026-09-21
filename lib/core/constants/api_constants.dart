@@ -35,6 +35,7 @@ class ApiConstants {
   static const rahbarBugalteriyaOylik = '/rahbar/bugalteriya/oylik';
   static const rahbarArizalar = '/rahbar/arizalar';
   static const rahbarLokatsiyaLive = '/rahbar/lokatsiya/live';
+  static const rahbarLokatsiyaTarix = '/rahbar/lokatsiya/tarix';
 
   // Staff Live GPS Tracking & Geofence (MOBIL_UCHUN_GEOFENCE_FACEID_XAVFSIZLIK.md)
   static const staffLokatsiya = '/bot/staff/lokatsiya';

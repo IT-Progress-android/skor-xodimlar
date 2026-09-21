@@ -78,12 +78,33 @@ class _StaffMapItem {
   });
 }
 
+class _LocationHistoryPoint {
+  final double lat;
+  final double lng;
+  final String vaqt;
+  final String? holat;
+  final bool? inside;
+  final double? distanceM;
+
+  const _LocationHistoryPoint({
+    required this.lat,
+    required this.lng,
+    required this.vaqt,
+    this.holat,
+    this.inside,
+    this.distanceM,
+  });
+}
+
 class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
   YandexMapController? _controller;
   List<MapObject<dynamic>> _mapObjects = const [];
   final Map<int, Uint8List> _markerBytesCache = {};
   final Map<int, int> _markerColorCache = {};
   Uint8List? _officeMarkerBytes;
+  Uint8List? _defaultUserMarkerBytes;
+  Uint8List? _startMarkerBytes;
+  Uint8List? _endMarkerBytes;
 
   List<_BranchLocation> _branches = [];
   int _selectedBranchIndex = 0;
@@ -94,8 +115,10 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
   double? _myLat;
   double? _myLng;
 
-  Point? _activeRouteTarget;
-  String? _activeRouteStaffName;
+  List<_LocationHistoryPoint> _historyPoints = [];
+  String? _historyStaffName;
+  int? _historyStaffId;
+  bool _loadingHistory = false;
 
   bool _loading = true;
   Timer? _autoRefreshTimer;
@@ -108,6 +131,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
   @override
   void initState() {
     super.initState();
+    _initBaseMarkerBytes();
     _loadAllBackendData();
     _fetchMyLocation();
 
@@ -211,8 +235,10 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
         if (id == 0) {
           final nomLower = name.trim().toLowerCase();
           for (final f in _rawFiliallar) {
-            final fNom =
-                (f['nom'] ?? f['name'] ?? '').toString().trim().toLowerCase();
+            final fNom = (f['nom'] ?? f['name'] ?? '')
+                .toString()
+                .trim()
+                .toLowerCase();
             if (fNom == nomLower ||
                 fNom.contains(nomLower) ||
                 nomLower.contains(fNom)) {
@@ -225,7 +251,9 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
           }
         }
         if (id == 0) {
-          id = parsedBranches.length + 1;
+          // Large offset so this synthetic id can never collide with a real
+          // backend branch id (which are always small sequential DB ids).
+          id = 1000000 + parsedBranches.length;
         }
 
         if (lat != 0.0 && lng != 0.0) {
@@ -248,9 +276,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
           final radius = _parseDouble(f['radius'] ?? f['radius_meter'], 100.0);
           final nom = (f['nom'] ?? f['name'] ?? '').toString().trim();
           final id = _parseInt(f['id'] ?? f['filial_id']);
-          final isUn = nom.isEmpty ||
-              nom.toLowerCase().contains('biriktirilmagan') ||
-              nom.toLowerCase().contains('unassigned');
+          final isUn = f['is_unassigned'] == true;
           if (!isUn && lat != 0.0 && lng != 0.0) {
             parsedBranches.add(
               _BranchLocation(
@@ -278,10 +304,9 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
         );
         final fStaff = (fMap['xodimlar'] as List?) ?? const [];
 
-        final isUnassigned =
-            fNom.isEmpty ||
-            fNom.toLowerCase().contains('biriktirilmagan') ||
-            fNom.toLowerCase().contains('unassigned');
+        // Backend guarantees `is_unassigned: true` on the "unassigned
+        // staff" pseudo-branch — confirmed authoritative.
+        final isUnassigned = fMap['is_unassigned'] == true;
 
         if (isUnassigned) {
           for (final st in fStaff) {
@@ -293,12 +318,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
             if (stName.isNotEmpty) {
               staffNameToBranch[stName] = 0;
             }
-            final stId = _parseInt(
-              stMap['id'] ??
-                  stMap['staff_id'] ??
-                  stMap['user_id'] ??
-                  stMap['xodim_id'],
-            );
+            final stId = _parseInt(stMap['id']);
             if (stId > 0) {
               staffIdToBranch[stId] = 0;
             }
@@ -338,12 +358,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
               if (stName.isNotEmpty) {
                 staffNameToBranch[stName] = targetBranchId;
               }
-              final stId = _parseInt(
-                stMap['id'] ??
-                    stMap['staff_id'] ??
-                    stMap['user_id'] ??
-                    stMap['xodim_id'],
-              );
+              final stId = _parseInt(stMap['id']);
               if (stId > 0) {
                 staffIdToBranch[stId] = targetBranchId;
               }
@@ -531,8 +546,8 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
 
             final int liveTargetBranchId = _getStaffBranchId(
               filialId: _parseInt(item['filial_id'] ?? item['branch_id']),
-              filialName:
-                  (item['filial_name'] ?? item['branch_name'])?.toString(),
+              filialName: (item['filial_name'] ?? item['branch_name'])
+                  ?.toString(),
               staffName: lName,
               staffId: lid,
               lat: lLat,
@@ -646,8 +661,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
 
     if (set1.length == set2.length && set1.containsAll(set2)) return true;
 
-    final common =
-        set1.intersection(set2).where((w) => w.length >= 3).toList();
+    final common = set1.intersection(set2).where((w) => w.length >= 3).toList();
     if (common.length >= 2) return true;
 
     if (set1.length == 1 && set2.length == 1 && set1.first == set2.first) {
@@ -696,9 +710,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
       }
       for (final b in _branches) {
         final bName = b.name.trim().toLowerCase();
-        if (bName == sName ||
-            bName.contains(sName) ||
-            sName.contains(bName)) {
+        if (bName == sName || bName.contains(sName) || sName.contains(bName)) {
           return b.id;
         }
       }
@@ -745,11 +757,19 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
           .where((s) => _isStaffInCurrentBranch(s, b))
           .toList();
 
-      debugPrint('════════════════════════════════════════════════════════════════');
+      debugPrint(
+        '════════════════════════════════════════════════════════════════',
+      );
       debugPrint('🏢 [XARITA - FILIAL BOSILDI]: ${b.name} (ID: ${b.id})');
-      debugPrint('📍 Koordinatalar: lat=${b.lat}, lng=${b.lng}, radius=${b.radius}m');
-      debugPrint('👥 Biriktirilgan xodimlar: ${staffInThisBranch.length} nafar');
-      debugPrint('────────────────────────────────────────────────────────────────');
+      debugPrint(
+        '📍 Koordinatalar: lat=${b.lat}, lng=${b.lng}, radius=${b.radius}m',
+      );
+      debugPrint(
+        '👥 Biriktirilgan xodimlar: ${staffInThisBranch.length} nafar',
+      );
+      debugPrint(
+        '────────────────────────────────────────────────────────────────',
+      );
       for (int i = 0; i < staffInThisBranch.length; i++) {
         final s = staffInThisBranch[i];
         debugPrint(
@@ -768,12 +788,23 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
           debugPrint('📦 [BACKEND RAW DATA]: $rf');
         }
       }
-      debugPrint('════════════════════════════════════════════════════════════════');
+      debugPrint(
+        '════════════════════════════════════════════════════════════════',
+      );
     }
   }
 
-  Future<void> _generateMarkerBytes() async {
+  Future<void> _initBaseMarkerBytes() async {
     _officeMarkerBytes ??= await AvatarMarkerHelper.generateOfficePinBytes();
+    _defaultUserMarkerBytes ??=
+        await AvatarMarkerHelper.generateDefaultPinBytes();
+    _startMarkerBytes ??= await AvatarMarkerHelper.generateStartPinBytes();
+    _endMarkerBytes ??= await AvatarMarkerHelper.generateEndPinBytes();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _generateMarkerBytes() async {
+    await _initBaseMarkerBytes();
     for (final staff in _allStaff) {
       Color pinColor;
       final att = staff.attendanceStatus.toLowerCase();
@@ -949,8 +980,8 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
 
             final int liveTargetBranchId = _getStaffBranchId(
               filialId: _parseInt(item['filial_id'] ?? item['branch_id']),
-              filialName:
-                  (item['filial_name'] ?? item['branch_name'])?.toString(),
+              filialName: (item['filial_name'] ?? item['branch_name'])
+                  ?.toString(),
               staffName: lName,
               staffId: lid,
               lat: lLat,
@@ -1063,7 +1094,8 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
   void _buildMapObjects() {
     final List<MapObject<dynamic>> newObjects = [];
 
-    final currentBranch = (_branches.isNotEmpty &&
+    final currentBranch =
+        (_branches.isNotEmpty &&
             _selectedBranchIndex >= 0 &&
             _selectedBranchIndex < _branches.length)
         ? _branches[_selectedBranchIndex]
@@ -1090,34 +1122,33 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
         ),
       );
 
-      newObjects.add(
-        PlacemarkMapObject(
-          mapId: MapObjectId('branch_dot_${currentBranch.id}'),
-          point: Point(
-            latitude: currentBranch.lat,
-            longitude: currentBranch.lng,
-          ),
-          icon: PlacemarkIcon.single(
-            PlacemarkIconStyle(
-              image: _officeMarkerBytes != null
-                  ? BitmapDescriptor.fromBytes(_officeMarkerBytes!)
-                  : BitmapDescriptor.fromAssetImage(
-                      'assets/images/work_marker.png',
-                    ),
-              scale: 0.9,
+      if (_officeMarkerBytes != null) {
+        newObjects.add(
+          PlacemarkMapObject(
+            mapId: MapObjectId('branch_dot_${currentBranch.id}'),
+            point: Point(
+              latitude: currentBranch.lat,
+              longitude: currentBranch.lng,
             ),
+            icon: PlacemarkIcon.single(
+              PlacemarkIconStyle(
+                image: BitmapDescriptor.fromBytes(_officeMarkerBytes!),
+                scale: 0.9,
+              ),
+            ),
+            opacity: 1.0,
+            zIndex: 6.0,
           ),
-          opacity: 1.0,
-          zIndex: 6.0,
-        ),
-      );
+        );
+      }
     }
 
     // 2. Real Staff Markers: ONLY staff belonging to the selected branch!
     for (final staff in _filteredStaff) {
       if (staff.lat == 0.0 || staff.lng == 0.0) continue;
       final staffPoint = Point(latitude: staff.lat, longitude: staff.lng);
-      final bytes = _markerBytesCache[staff.id];
+      final bytes = _markerBytesCache[staff.id] ?? _defaultUserMarkerBytes;
+      if (bytes == null) continue;
 
       newObjects.add(
         PlacemarkMapObject(
@@ -1125,12 +1156,8 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
           point: staffPoint,
           icon: PlacemarkIcon.single(
             PlacemarkIconStyle(
-              image: bytes != null
-                  ? BitmapDescriptor.fromBytes(bytes)
-                  : BitmapDescriptor.fromAssetImage(
-                      'assets/images/user_marker.png',
-                    ),
-              scale: 0.85,
+              image: BitmapDescriptor.fromBytes(bytes),
+              scale: 0.75,
             ),
           ),
           opacity: 1.0,
@@ -1141,22 +1168,63 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
       );
     }
 
-    // 3. In-App Polyline route between branch and staff if active
-    if (_activeRouteTarget != null && currentBranch != null) {
-      if (currentBranch.lat != 0.0 && currentBranch.lng != 0.0) {
-        final start = Point(
-          latitude: currentBranch.lat,
-          longitude: currentBranch.lng,
-        );
-
+    // 3. Staff GPS movement history trail (Zonic app polyline logic)
+    if (_historyPoints.isNotEmpty) {
+      if (_historyPoints.length >= 2) {
         newObjects.add(
           PolylineMapObject(
-            mapId: const MapObjectId('in_app_staff_route'),
-            polyline: Polyline(points: [start, _activeRouteTarget!]),
+            mapId: const MapObjectId('staff_history_trail'),
+            polyline: Polyline(
+              points: _historyPoints
+                  .map((p) => Point(latitude: p.lat, longitude: p.lng))
+                  .toList(),
+            ),
             strokeColor: const Color(0xFF0D6E6E),
-            strokeWidth: 4.0,
+            strokeWidth: 4.5,
             outlineColor: Colors.white,
             outlineWidth: 1.5,
+            zIndex: 8.0,
+          ),
+        );
+      }
+
+      final firstP = _historyPoints.first;
+      final lastP = _historyPoints.last;
+
+      if (_startMarkerBytes != null) {
+        newObjects.add(
+          PlacemarkMapObject(
+            mapId: const MapObjectId('staff_history_start'),
+            point: Point(latitude: firstP.lat, longitude: firstP.lng),
+            icon: PlacemarkIcon.single(
+              PlacemarkIconStyle(
+                image: BitmapDescriptor.fromBytes(_startMarkerBytes!),
+                scale: 0.8,
+              ),
+            ),
+            opacity: 1.0,
+            zIndex: 9.0,
+          ),
+        );
+      }
+
+      final endBytes =
+          (_historyStaffId != null ? _markerBytesCache[_historyStaffId] : null) ??
+          _endMarkerBytes ??
+          _defaultUserMarkerBytes;
+      if (endBytes != null) {
+        newObjects.add(
+          PlacemarkMapObject(
+            mapId: const MapObjectId('staff_history_end'),
+            point: Point(latitude: lastP.lat, longitude: lastP.lng),
+            icon: PlacemarkIcon.single(
+              PlacemarkIconStyle(
+                image: BitmapDescriptor.fromBytes(endBytes),
+                scale: 0.8,
+              ),
+            ),
+            opacity: 1.0,
+            zIndex: 11.0,
           ),
         );
       }
@@ -1186,14 +1254,18 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
         ),
       );
     } else {
-      final staffWithCoords =
-          _filteredStaff.where((s) => s.lat != 0.0 && s.lng != 0.0).toList();
+      final staffWithCoords = _filteredStaff
+          .where((s) => s.lat != 0.0 && s.lng != 0.0)
+          .toList();
       if (staffWithCoords.isNotEmpty) {
         final firstStaff = staffWithCoords.first;
         _controller?.moveCamera(
           CameraUpdate.newCameraPosition(
             CameraPosition(
-              target: Point(latitude: firstStaff.lat, longitude: firstStaff.lng),
+              target: Point(
+                latitude: firstStaff.lat,
+                longitude: firstStaff.lng,
+              ),
               zoom: 15.5,
             ),
           ),
@@ -1222,36 +1294,156 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
     );
   }
 
-  void _drawInAppRouteToStaff(_StaffMapItem staff) {
-    if (_branches.isEmpty) return;
-    final branch =
-        _branches[_selectedBranchIndex.clamp(0, _branches.length - 1)];
+  Future<void> _loadStaffHistory(_StaffMapItem staff) async {
+    setState(() => _loadingHistory = true);
+    try {
+      debugPrint(
+        '🔍 [HISTORY] Fetching movement history for staffId: ${staff.id} (${staff.name})',
+      );
+      final data = await sl<RahbarRemoteDataSource>().getStaffLocationHistory(
+        xodimId: staff.id,
+      );
+      debugPrint('📍 [HISTORY RESPONSE]: $data');
 
-    final startPoint = Point(latitude: branch.lat, longitude: branch.lng);
-    final endPoint = Point(latitude: staff.lat, longitude: staff.lng);
+      final dynamic rawList = data['nuqtalar'] ??
+          data['data'] ??
+          data['points'] ??
+          data['locations'] ??
+          data['history'] ??
+          data['tracks'] ??
+          data['harakatlar'];
 
+      final List<_LocationHistoryPoint> points = [];
+      if (rawList is List) {
+        for (final item in rawList) {
+          if (item is Map) {
+            final m = Map<String, dynamic>.from(item);
+            final lat = _parseDouble(m['lat'] ?? m['latitude']);
+            final lng = _parseDouble(m['lng'] ?? m['longitude']);
+            if (lat != 0.0 && lng != 0.0) {
+              points.add(
+                _LocationHistoryPoint(
+                  lat: lat,
+                  lng: lng,
+                  vaqt: (m['vaqt'] ??
+                          m['time'] ??
+                          m['recorded_at'] ??
+                          m['created_at'] ??
+                          '')
+                      .toString(),
+                  holat: m['holat']?.toString() ?? m['status']?.toString(),
+                  inside: (m['inside'] ?? m['is_inside']) as bool?,
+                  distanceM: _parseDouble(m['distance_m'] ?? m['distance']),
+                ),
+              );
+            }
+          }
+        }
+      }
+
+      // If backend history has 0 points, but staff has current GPS coords:
+      // provide current position as single point
+      if (points.isEmpty && staff.lat != 0.0 && staff.lng != 0.0) {
+        points.add(
+          _LocationHistoryPoint(
+            lat: staff.lat,
+            lng: staff.lng,
+            vaqt: staff.checkIn.isNotEmpty ? staff.checkIn : '',
+            holat: staff.holat,
+            inside: staff.isInside,
+          ),
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _historyPoints = points;
+        _historyStaffName = staff.name;
+        _historyStaffId = staff.id;
+        _loadingHistory = false;
+      });
+      _buildMapObjects();
+
+      if (points.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr('rahbar_history_empty')),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      // Smooth camera bounds animation (Zonic app logic)
+      if (points.length == 1) {
+        _controller?.moveCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: Point(
+                latitude: points.first.lat,
+                longitude: points.first.lng,
+              ),
+              zoom: 16.0,
+            ),
+          ),
+          animation: const MapAnimation(
+            type: MapAnimationType.smooth,
+            duration: 0.8,
+          ),
+        );
+      } else {
+        double minLat = points.first.lat;
+        double maxLat = points.first.lat;
+        double minLng = points.first.lng;
+        double maxLng = points.first.lng;
+
+        for (final p in points) {
+          if (p.lat < minLat) minLat = p.lat;
+          if (p.lat > maxLat) maxLat = p.lat;
+          if (p.lng < minLng) minLng = p.lng;
+          if (p.lng > maxLng) maxLng = p.lng;
+        }
+
+        final latDelta = (maxLat - minLat).abs();
+        final lngDelta = (maxLng - minLng).abs();
+        final latPadding = latDelta > 0.0001 ? latDelta * 0.18 : 0.003;
+        final lngPadding = lngDelta > 0.0001 ? lngDelta * 0.18 : 0.003;
+
+        _controller?.moveCamera(
+          CameraUpdate.newGeometry(
+            Geometry.fromBoundingBox(
+              BoundingBox(
+                southWest: Point(
+                  latitude: minLat - latPadding,
+                  longitude: minLng - lngPadding,
+                ),
+                northEast: Point(
+                  latitude: maxLat + latPadding,
+                  longitude: maxLng + lngPadding,
+                ),
+              ),
+            ),
+          ),
+          animation: const MapAnimation(
+            type: MapAnimationType.smooth,
+            duration: 1.0,
+          ),
+        );
+      }
+    } catch (e, stack) {
+      debugPrint('❌ [HISTORY ERROR]: $e\n$stack');
+      if (mounted) setState(() => _loadingHistory = false);
+    }
+  }
+
+  void _clearStaffHistory() {
     setState(() {
-      _activeRouteTarget = endPoint;
-      _activeRouteStaffName = staff.name;
+      _historyPoints = [];
+      _historyStaffName = null;
+      _historyStaffId = null;
     });
-
     _buildMapObjects();
-
-    final midLat = (startPoint.latitude + endPoint.latitude) / 2;
-    final midLng = (startPoint.longitude + endPoint.longitude) / 2;
-
-    _controller?.moveCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: Point(latitude: midLat, longitude: midLng),
-          zoom: 15.5,
-        ),
-      ),
-      animation: const MapAnimation(
-        type: MapAnimationType.smooth,
-        duration: 0.8,
-      ),
-    );
+    _moveCameraToBranch();
   }
 
   Widget _buildFallbackAvatar(String name, {double radius = 26}) {
@@ -1443,7 +1635,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
             ),
             const SizedBox(height: 18),
 
-            // Button 1: Assign In-App Work Geofence Zone for this staff
+            // Action 1: Load & draw the staff's GPS movement history trail (Zonic app logic)
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -1451,6 +1643,37 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
                   backgroundColor: const Color(0xFF0D6E6E),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: _loadingHistory
+                    ? null
+                    : () {
+                        Navigator.pop(ctx);
+                        _loadStaffHistory(staff);
+                      },
+                icon: const Icon(Icons.route_rounded, color: Colors.white),
+                label: Text(
+                  context.tr('rahbar_view_history_button'),
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Action 2: Assign In-App Work Geofence Zone for this staff
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF0D6E6E),
+                  side: const BorderSide(color: Color(0xFF0D6E6E), width: 1.5),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -1475,37 +1698,6 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
                 icon: const Icon(Icons.add_location_alt_rounded),
                 label: Text(
                   context.tr('rahbar_assign_zone_button'),
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Button 2: Draw in-app route polyline on our map
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF0D6E6E),
-                  side: const BorderSide(color: Color(0xFF0D6E6E), width: 1.5),
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _drawInAppRouteToStaff(staff);
-                },
-                icon: const Icon(
-                  Icons.alt_route_rounded,
-                  color: Color(0xFF0D6E6E),
-                ),
-                label: Text(
-                  context.tr('rahbar_view_route_button'),
                   style: GoogleFonts.outfit(
                     fontWeight: FontWeight.bold,
                     fontSize: 13.5,
@@ -1770,20 +1962,20 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
                   ),
                 ),
 
-                // If active in-app route is showing, display a route dismiss bar
-                if (_activeRouteTarget != null) ...[
+                // If a staff GPS history trail is showing, display a clean dismiss bar
+                if (_historyPoints.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                      horizontal: 14,
+                      vertical: 9,
                     ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF0D6E6E),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
+                          color: Colors.black.withValues(alpha: 0.16),
                           blurRadius: 10,
                           offset: const Offset(0, 3),
                         ),
@@ -1791,38 +1983,78 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(
-                          Icons.alt_route_rounded,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            context.tr('rahbar_route_label', {
-                              'name':
-                                  _activeRouteStaffName ??
-                                  context.tr('rahbar_staff_fallback'),
-                            }),
-                            style: GoogleFonts.outfit(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
                           ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _activeRouteTarget = null;
-                              _activeRouteStaffName = null;
-                            });
-                            _buildMapObjects();
-                          },
                           child: const Icon(
-                            Icons.close_rounded,
+                            Icons.route_rounded,
                             color: Colors.white,
                             size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _historyStaffName ??
+                                    context.tr('rahbar_staff_fallback'),
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '${_historyPoints.length} ta lokatsiya nuqtasi${_historyPoints.first.vaqt.isNotEmpty ? " • ${_historyPoints.first.vaqt}" : ""}${_historyPoints.length > 1 && _historyPoints.last.vaqt.isNotEmpty ? " → ${_historyPoints.last.vaqt}" : ""}',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                  fontSize: 11,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: _clearStaffHistory,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.close_rounded,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Yopish',
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],

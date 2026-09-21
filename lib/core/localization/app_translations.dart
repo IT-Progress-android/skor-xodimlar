@@ -366,6 +366,9 @@ class AppTranslations {
       'rahbar_inside_count': 'Ishda: {count}',
       'rahbar_outside_count': 'Tashqarida: {count}',
       'rahbar_route_label': 'Yo\'nalish: {name}',
+      'rahbar_view_history_button': 'Harakat tarixini ko\'rish',
+      'rahbar_history_label': 'Tarix: {name} ({count} nuqta)',
+      'rahbar_history_empty': 'Bu kun uchun harakat tarixi topilmadi',
       'rahbar_search_staff_plural': 'Xodimlarni qidirish...',
       'offline_reconnected': 'Internet aloqasi qayta tiklandi!',
       'offline_still_no_internet':
@@ -923,8 +926,7 @@ class AppTranslations {
       'rahbar_no_data_in_range': 'За этот период нет данных',
       'rahbar_kunlik_summary':
           'Пришли: {present}/{total}  ·  Опоздали: {late}  ·  По заявке: {ariza}',
-      'rahbar_kunlik_legend':
-          'Цвет: 🟢 80% и выше   🟠 50–79%   🔴 ниже 50%',
+      'rahbar_kunlik_legend': 'Цвет: 🟢 80% и выше   🟠 50–79%   🔴 ниже 50%',
       'rahbar_terminal_not_connected': 'Терминал ещё не подключён',
       'rahbar_no_data_this_date': 'На эту дату нет данных',
       'rahbar_no_attendance_data_generic':
@@ -1025,6 +1027,9 @@ class AppTranslations {
       'rahbar_inside_count': 'На работе: {count}',
       'rahbar_outside_count': 'Снаружи: {count}',
       'rahbar_route_label': 'Маршрут: {name}',
+      'rahbar_view_history_button': 'Посмотреть историю перемещений',
+      'rahbar_history_label': 'История: {name} ({count} точек)',
+      'rahbar_history_empty': 'За этот день история перемещений не найдена',
       'rahbar_search_staff_plural': 'Поиск сотрудников...',
       'offline_reconnected': 'Подключение к интернету восстановлено!',
       'offline_still_no_internet':
@@ -1058,7 +1063,8 @@ class AppTranslations {
           'не передаются третьим лицам и не используются в рекламных целях.',
       'location_accept': 'Понятно, согласен(на)',
       'location_decline': 'Не сейчас (Отклонить)',
-      'bg_location_disclosure_title': 'Доступ к местоположению в фоновом режиме',
+      'bg_location_disclosure_title':
+          'Доступ к местоположению в фоновом режиме',
       'bg_location_disclosure_statement':
           'Приложение «Skor Xodimlar» собирает данные о местоположении, '
           'даже когда приложение закрыто или не используется (в фоновом режиме), '
@@ -1674,6 +1680,9 @@ class AppTranslations {
       'rahbar_inside_count': 'At work: {count}',
       'rahbar_outside_count': 'Outside: {count}',
       'rahbar_route_label': 'Route: {name}',
+      'rahbar_view_history_button': 'View movement history',
+      'rahbar_history_label': 'History: {name} ({count} points)',
+      'rahbar_history_empty': 'No movement history found for this day',
       'rahbar_search_staff_plural': 'Search staff...',
       'offline_reconnected': 'Internet connection restored!',
       'offline_still_no_internet':
@@ -2318,6 +2327,9 @@ class AppTranslations {
       'rahbar_inside_count': 'Жумушта: {count}',
       'rahbar_outside_count': 'Тышкарыда: {count}',
       'rahbar_route_label': 'Маршрут: {name}',
+      'rahbar_view_history_button': 'Кыймыл тарыхын көрүү',
+      'rahbar_history_label': 'Тарых: {name} ({count} чекит)',
+      'rahbar_history_empty': 'Бул күн үчүн кыймыл тарыхы табылган жок',
       'rahbar_search_staff_plural': 'Кызматкерлерди издөө...',
       'offline_reconnected': 'Интернет байланышы калыбына келди!',
       'offline_still_no_internet':

@@ -34,6 +34,10 @@ abstract class RahbarRemoteDataSource {
     int? bolimId,
     String? holat,
   });
+  Future<Map<String, dynamic>> getStaffLocationHistory({
+    required int xodimId,
+    String? sana,
+  });
 }
 
 class RahbarRemoteDataSourceImpl implements RahbarRemoteDataSource {
@@ -257,6 +261,16 @@ class RahbarRemoteDataSourceImpl implements RahbarRemoteDataSource {
   Future<Map<String, dynamic>> getFilial({String? sana}) {
     return _getMap(ApiConstants.rahbarHisobotFilial, {
       if (sana != null) ...{'sana': sana, 'date': sana},
+    });
+  }
+
+  @override
+  Future<Map<String, dynamic>> getStaffLocationHistory({
+    required int xodimId,
+    String? sana,
+  }) {
+    return _getMap('${ApiConstants.rahbarLokatsiyaTarix}/$xodimId', {
+      'sana': ?sana,
     });
   }
 

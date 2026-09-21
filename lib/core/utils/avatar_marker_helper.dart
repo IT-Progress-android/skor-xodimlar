@@ -214,4 +214,196 @@ class AvatarMarkerHelper {
     );
     return byteData!.buffer.asUint8List();
   }
+
+  /// Generates a clean fallback user pin marker (100% vector drawn, 0% checkerboard)
+  static Future<Uint8List> generateDefaultPinBytes({
+    Color color = const Color(0xFF0D6E6E),
+  }) async {
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+
+    const double width = 80.0;
+    const double height = 96.0;
+    const double cx = width / 2;
+    const double cy = 36.0;
+    const double radius = 28.0;
+
+    // 1. Drop shadow
+    final Paint shadowPaint = Paint()
+      ..color = const Color(0x35000000)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    final Path pinPath = Path();
+    pinPath.addOval(
+      Rect.fromCircle(center: const Offset(cx, cy), radius: radius),
+    );
+    pinPath.moveTo(cx - 10, cy + radius - 3);
+    pinPath.lineTo(cx, height - 6);
+    pinPath.lineTo(cx + 10, cy + radius - 3);
+    pinPath.close();
+    canvas.drawPath(pinPath, shadowPaint);
+
+    // 2. Outer pin body
+    final Paint pointerPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(pinPath, pointerPaint);
+
+    // 3. Inner white circle
+    final Paint whiteBorder = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(const Offset(cx, cy), radius - 3.5, whiteBorder);
+
+    // 4. Inner fill circle
+    final Paint innerFill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(const Offset(cx, cy), radius - 6.5, innerFill);
+
+    // 5. User icon silhouette: head + shoulders
+    final Paint iconPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(const Offset(cx, cy - 5), 6.5, iconPaint);
+    final Rect shoulderRect = Rect.fromCenter(
+      center: const Offset(cx, cy + 9),
+      width: 20,
+      height: 14,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndCorners(
+        shoulderRect,
+        topLeft: const Radius.circular(7),
+        topRight: const Radius.circular(7),
+        bottomLeft: const Radius.circular(4),
+        bottomRight: const Radius.circular(4),
+      ),
+      iconPaint,
+    );
+
+    final ui.Picture picture = recorder.endRecording();
+    final ui.Image img = await picture.toImage(width.toInt(), height.toInt());
+    final ByteData? byteData = await img.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+    return byteData!.buffer.asUint8List();
+  }
+
+  /// Generates Start Point ("A" boshlanish) marker for route history
+  static Future<Uint8List> generateStartPinBytes() async {
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+
+    const double width = 64.0;
+    const double height = 76.0;
+    const double cx = width / 2;
+    const double cy = 28.0;
+    const double radius = 22.0;
+
+    // Drop shadow
+    final Paint shadowPaint = Paint()
+      ..color = const Color(0x35000000)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    final Path pinPath = Path();
+    pinPath.addOval(
+      Rect.fromCircle(center: const Offset(cx, cy), radius: radius),
+    );
+    pinPath.moveTo(cx - 8, cy + radius - 2);
+    pinPath.lineTo(cx, height - 4);
+    pinPath.lineTo(cx + 8, cy + radius - 2);
+    pinPath.close();
+    canvas.drawPath(pinPath, shadowPaint);
+
+    // Green pin body
+    final Paint pinPaint = Paint()
+      ..color = const Color(0xFF16A34A)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(pinPath, pinPaint);
+
+    // Inner white circle
+    final Paint whiteCircle = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(const Offset(cx, cy), radius - 3.0, whiteCircle);
+
+    // Green letter "A"
+    final TextPainter tp = TextPainter(
+      text: const TextSpan(
+        text: 'A',
+        style: TextStyle(
+          color: Color(0xFF16A34A),
+          fontSize: 18,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
+
+    final ui.Picture picture = recorder.endRecording();
+    final ui.Image img = await picture.toImage(width.toInt(), height.toInt());
+    final ByteData? byteData = await img.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+    return byteData!.buffer.asUint8List();
+  }
+
+  /// Generates End Point ("B" oxirgi nuqta) marker for route history
+  static Future<Uint8List> generateEndPinBytes() async {
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+
+    const double width = 64.0;
+    const double height = 76.0;
+    const double cx = width / 2;
+    const double cy = 28.0;
+    const double radius = 22.0;
+
+    // Drop shadow
+    final Paint shadowPaint = Paint()
+      ..color = const Color(0x35000000)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    final Path pinPath = Path();
+    pinPath.addOval(
+      Rect.fromCircle(center: const Offset(cx, cy), radius: radius),
+    );
+    pinPath.moveTo(cx - 8, cy + radius - 2);
+    pinPath.lineTo(cx, height - 4);
+    pinPath.lineTo(cx + 8, cy + radius - 2);
+    pinPath.close();
+    canvas.drawPath(pinPath, shadowPaint);
+
+    // Teal / primary pin body
+    final Paint pinPaint = Paint()
+      ..color = const Color(0xFF0D6E6E)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(pinPath, pinPaint);
+
+    // Inner white circle
+    final Paint whiteCircle = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(const Offset(cx, cy), radius - 3.0, whiteCircle);
+
+    // Teal letter "B"
+    final TextPainter tp = TextPainter(
+      text: const TextSpan(
+        text: 'B',
+        style: TextStyle(
+          color: Color(0xFF0D6E6E),
+          fontSize: 18,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
+
+    final ui.Picture picture = recorder.endRecording();
+    final ui.Image img = await picture.toImage(width.toInt(), height.toInt());
+    final ByteData? byteData = await img.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+    return byteData!.buffer.asUint8List();
+  }
 }

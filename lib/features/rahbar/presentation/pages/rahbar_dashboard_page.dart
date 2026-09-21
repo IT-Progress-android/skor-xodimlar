@@ -95,7 +95,8 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
             final rawNom = (loc['name'] ?? loc['nom'] ?? loc['title'] ?? '')
                 .toString()
                 .trim();
-            final isUn = rawNom.isEmpty ||
+            final isUn =
+                rawNom.isEmpty ||
                 rawNom.toLowerCase().contains('biriktirilmagan') ||
                 rawNom.toLowerCase().contains('unassigned') ||
                 rawNom.toLowerCase() == 'null';
@@ -103,8 +104,10 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
             final id = isUn
                 ? 0
                 : (_parseInt(loc['id']) > 0
-                    ? _parseInt(loc['id'])
-                    : (parsedBranches.length + 1));
+                      // Large offset so this synthetic id can never collide
+                      // with a real backend branch id (small sequential DB ids).
+                      ? _parseInt(loc['id'])
+                      : (1000000 + parsedBranches.length));
 
             if (!addedIds.contains(id)) {
               addedIds.add(id);
@@ -139,11 +142,9 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
             final fNom = (fMap['nom'] ?? fMap['name'] ?? '').toString().trim();
             final fStaff = (fMap['xodimlar'] as List?) ?? const [];
 
-            final isUnassigned =
-                fNom.isEmpty ||
-                fNom.toLowerCase().contains('biriktirilmagan') ||
-                fNom.toLowerCase().contains('unassigned') ||
-                fNom.toLowerCase() == 'null';
+            // Backend guarantees `is_unassigned: true` on the "unassigned
+            // staff" pseudo-branch — confirmed authoritative.
+            final isUnassigned = fMap['is_unassigned'] == true;
 
             if (isUnassigned) {
               for (final st in fStaff) {
@@ -155,12 +156,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                 if (stName.isNotEmpty) {
                   staffNameToBranch[stName] = 0;
                 }
-                final stId = _parseInt(
-                  stMap['id'] ??
-                      stMap['staff_id'] ??
-                      stMap['user_id'] ??
-                      stMap['xodim_id'],
-                );
+                final stId = _parseInt(stMap['id']);
                 if (stId > 0) {
                   staffIdToBranch[stId] = 0;
                 }
@@ -212,12 +208,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                   if (stName.isNotEmpty) {
                     staffNameToBranch[stName] = targetBranchId;
                   }
-                  final stId = _parseInt(
-                    stMap['id'] ??
-                        stMap['staff_id'] ??
-                        stMap['user_id'] ??
-                        stMap['xodim_id'],
-                  );
+                  final stId = _parseInt(stMap['id']);
                   if (stId > 0) {
                     staffIdToBranch[stId] = targetBranchId;
                   }
@@ -230,13 +221,8 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
           if (!parsedBranches.any((b) => (b['id'] as int) == 0)) {
             final hasUnassignedStaff = rawFiliallar.any((f) {
               final fMap = Map<String, dynamic>.from(f as Map);
-              final fNom = (fMap['nom'] ?? fMap['name'] ?? '').toString().trim().toLowerCase();
-              final isUn = fNom.isEmpty ||
-                  fNom.contains('biriktirilmagan') ||
-                  fNom.contains('unassigned') ||
-                  fNom == 'null';
               final fStaff = (fMap['xodimlar'] as List?) ?? const [];
-              return isUn && fStaff.isNotEmpty;
+              return fMap['is_unassigned'] == true && fStaff.isNotEmpty;
             });
             if (hasUnassignedStaff) {
               parsedBranches.add({
@@ -291,8 +277,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
 
     if (set1.length == set2.length && set1.containsAll(set2)) return true;
 
-    final common =
-        set1.intersection(set2).where((w) => w.length >= 3).toList();
+    final common = set1.intersection(set2).where((w) => w.length >= 3).toList();
     if (common.length >= 2) return true;
 
     if (set1.length == 1 && set2.length == 1 && set1.first == set2.first) {
@@ -371,15 +356,21 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
         .toList();
 
     final bool isUnassigned = id == 0;
-    debugPrint('════════════════════════════════════════════════════════════════');
+    debugPrint(
+      '════════════════════════════════════════════════════════════════',
+    );
     debugPrint('🏢 [DASHBOARD - FILIAL BOSILDI]: $name (ID: $id)');
     if (!isUnassigned) {
-      debugPrint('📍 Koordinatalar: lat=${b['lat']}, lng=${b['lng']}, radius=${b['radius']}m');
+      debugPrint(
+        '📍 Koordinatalar: lat=${b['lat']}, lng=${b['lng']}, radius=${b['radius']}m',
+      );
     } else {
       debugPrint('📍 Filial biriktirilmagan xodimlar ro\'yxati');
     }
     debugPrint('👥 Biriktirilgan xodimlar soni: ${staffInBranch.length} nafar');
-    debugPrint('────────────────────────────────────────────────────────────────');
+    debugPrint(
+      '────────────────────────────────────────────────────────────────',
+    );
     for (int i = 0; i < staffInBranch.length; i++) {
       final s = staffInBranch[i];
       debugPrint(
@@ -391,7 +382,8 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
     for (final f in _rawFiliallar) {
       final fNom = (f['nom'] ?? f['name'] ?? '').toString().toLowerCase();
       final fId = _parseInt(f['id'] ?? f['filial_id'] ?? f['location_id']);
-      final bool matches = (id == 0 &&
+      final bool matches =
+          (id == 0 &&
               (fNom.contains('biriktirilmagan') ||
                   fNom.contains('unassigned') ||
                   fId == 0)) ||
@@ -403,7 +395,9 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
         debugPrint('📦 [BACKEND RAW DATA]: $f');
       }
     }
-    debugPrint('════════════════════════════════════════════════════════════════');
+    debugPrint(
+      '════════════════════════════════════════════════════════════════',
+    );
   }
 
   bool _hasCheckIn(RahbarStaffAttendanceEntity item) =>
@@ -426,7 +420,9 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
   bool _isAbsent(RahbarStaffAttendanceEntity item) {
     final hasIn = _hasCheckIn(item);
     return BackendTextMapper.isAbsentStatus(item.status) ||
-        (!hasIn && !BackendTextMapper.isPresentStatus(item.status) && !_isLate(item));
+        (!hasIn &&
+            !BackendTextMapper.isPresentStatus(item.status) &&
+            !_isLate(item));
   }
 
   bool _isPresent(RahbarStaffAttendanceEntity item) {
@@ -572,10 +568,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
         actions: [
           IconButton(
             onPressed: () => LanguagePickerBottomSheet.show(context),
-            icon: const Icon(
-              Icons.language_rounded,
-              color: Color(0xFF0D6E6E),
-            ),
+            icon: const Icon(Icons.language_rounded, color: Color(0xFF0D6E6E)),
             tooltip: context.tr('app_language'),
           ),
         ],
@@ -753,8 +746,9 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                                 .length;
                             final bool isFirst = _branches.indexOf(b) == 0;
                             final bool isUnassigned = id == 0;
-                            final String chipTitle =
-                                isUnassigned ? name : '📍 $name';
+                            final String chipTitle = isUnassigned
+                                ? name
+                                : '📍 $name';
                             return Padding(
                               padding: EdgeInsets.only(left: isFirst ? 0 : 8),
                               child: _buildBranchChip(

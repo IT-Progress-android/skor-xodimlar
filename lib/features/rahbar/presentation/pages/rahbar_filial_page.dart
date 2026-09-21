@@ -46,14 +46,9 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
 
           for (final item in rawFiliallar) {
             final f = Map<String, dynamic>.from(item as Map);
-            final nom = (f['nom'] ?? f['name'] ?? '').toString().trim();
-            final isUnassigned =
-                nom.isEmpty ||
-                nom.toLowerCase().contains('biriktirilmagan') ||
-                nom.toLowerCase().contains('unassigned') ||
-                nom.toLowerCase() == 'null';
-
-            if (!isUnassigned) {
+            // Backend guarantees `is_unassigned: true` (and `id: null`) on the
+            // "unassigned staff" pseudo-branch — confirmed authoritative.
+            if (f['is_unassigned'] != true) {
               filiallar.add(f);
             }
           }
@@ -86,16 +81,24 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
                   final jami = f['jami'];
                   final kelgan = f['kelgan'];
                   final xodimlar = (f['xodimlar'] as List?) ?? const [];
-                  debugPrint('════════════════════════════════════════════════════════════════');
+                  debugPrint(
+                    '════════════════════════════════════════════════════════════════',
+                  );
                   debugPrint('🏢 [FILIAL SAHIFA - FILIAL OCHILDI]: $nom');
-                  debugPrint('👥 Jami: $jami | Kelgan: $kelgan | Xodimlar ro\'yxati soni: ${xodimlar.length}');
-                  debugPrint('────────────────────────────────────────────────────────────────');
+                  debugPrint(
+                    '👥 Jami: $jami | Kelgan: $kelgan | Xodimlar ro\'yxati soni: ${xodimlar.length}',
+                  );
+                  debugPrint(
+                    '────────────────────────────────────────────────────────────────',
+                  );
                   for (int i = 0; i < xodimlar.length; i++) {
                     final x = xodimlar[i];
                     debugPrint(' #${i + 1} $x');
                   }
                   debugPrint('📦 [BACKEND RAW FILIAL]: $f');
-                  debugPrint('════════════════════════════════════════════════════════════════');
+                  debugPrint(
+                    '════════════════════════════════════════════════════════════════',
+                  );
                 }
               },
               children: List.generate(filiallar.length, (index) {
