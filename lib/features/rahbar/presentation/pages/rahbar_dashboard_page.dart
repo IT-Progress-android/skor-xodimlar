@@ -37,6 +37,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
   List<Map<String, dynamic>> _branches = [];
   List<RahbarStaffAttendanceEntity> _kundalikStaffList = [];
   Map<String, int> _staffNameToBranchId = {};
+  Map<int, int> _staffIdToBranchId = {};
   List<Map<String, dynamic>> _rawFiliallar = [];
   final _fmt = DateFormat('yyyy-MM-dd');
   final _displayFmt = DateFormat('dd.MM.yyyy');
@@ -57,6 +58,17 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
       LoadRahbarDashboard(date: _fmt.format(_selectedDate)),
     );
     _fetchBranchesAndKundalik();
+  }
+
+  int _parseInt(dynamic val, [int fallback = 0]) {
+    if (val == null) return fallback;
+    if (val is int) return val;
+    if (val is num) return val.toInt();
+    if (val is String) {
+      final clean = val.trim();
+      return int.tryParse(clean) ?? fallback;
+    }
+    return fallback;
   }
 
   Future<void> _fetchBranchesAndKundalik() async {
@@ -108,6 +120,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
               .map((e) => Map<String, dynamic>.from(e as Map))
               .toList();
           final Map<String, int> staffNameToBranch = {};
+          final Map<int, int> staffIdToBranch = {};
 
           for (final f in rawFiliallar) {
             final fMap = Map<String, dynamic>.from(f as Map);
@@ -117,7 +130,8 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
             final isUnassigned =
                 fNom.isEmpty ||
                 fNom.toLowerCase().contains('biriktirilmagan') ||
-                fNom.toLowerCase().contains('unassigned');
+                fNom.toLowerCase().contains('unassigned') ||
+                fNom.toLowerCase() == 'null';
 
             if (isUnassigned) {
               for (final st in fStaff) {
@@ -129,36 +143,79 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                 if (stName.isNotEmpty) {
                   staffNameToBranch[stName] = 0;
                 }
+                final stId = _parseInt(
+                  stMap['id'] ??
+                      stMap['staff_id'] ??
+                      stMap['user_id'] ??
+                      stMap['xodim_id'],
+                );
+                if (stId > 0) {
+                  staffIdToBranch[stId] = 0;
+                }
               }
             } else {
-              int targetBranchId = parsedBranches.isNotEmpty
-                  ? (parsedBranches.first['id'] as int)
-                  : 1;
-              for (final b in parsedBranches) {
-                final bName = (b['name'] as String).toLowerCase();
+              int? targetBranchId;
+              // 1. Match by branch name first!
+              if (fNom.isNotEmpty) {
                 final nomLower = fNom.toLowerCase();
-                if (bName == nomLower ||
-                    bName.contains(nomLower) ||
-                    nomLower.contains(bName)) {
-                  targetBranchId = b['id'] as int;
-                  break;
+                for (final b in parsedBranches) {
+                  final bName = (b['name'] as String).toLowerCase();
+                  if (bName == nomLower) {
+                    targetBranchId = b['id'] as int;
+                    break;
+                  }
+                }
+                if (targetBranchId == null) {
+                  for (final b in parsedBranches) {
+                    final bName = (b['name'] as String).toLowerCase();
+                    if (bName.contains(nomLower) || nomLower.contains(bName)) {
+                      targetBranchId = b['id'] as int;
+                      break;
+                    }
+                  }
+                }
+              }
+              // 2. Fallback to fId only if name matching did not find branch
+              if (targetBranchId == null) {
+                final fId = _parseInt(
+                  fMap['id'] ?? fMap['filial_id'] ?? fMap['location_id'],
+                );
+                if (fId > 0) {
+                  for (final b in parsedBranches) {
+                    if ((b['id'] as int) == fId) {
+                      targetBranchId = b['id'] as int;
+                      break;
+                    }
+                  }
                 }
               }
 
-              for (final st in fStaff) {
-                final stMap = Map<String, dynamic>.from(st as Map);
-                final stName = (stMap['name'] ?? stMap['xodim'] ?? '')
-                    .toString()
-                    .trim()
-                    .toLowerCase();
-                if (stName.isNotEmpty) {
-                  staffNameToBranch[stName] = targetBranchId;
+              if (targetBranchId != null) {
+                for (final st in fStaff) {
+                  final stMap = Map<String, dynamic>.from(st as Map);
+                  final stName = (stMap['name'] ?? stMap['xodim'] ?? '')
+                      .toString()
+                      .trim()
+                      .toLowerCase();
+                  if (stName.isNotEmpty) {
+                    staffNameToBranch[stName] = targetBranchId;
+                  }
+                  final stId = _parseInt(
+                    stMap['id'] ??
+                        stMap['staff_id'] ??
+                        stMap['user_id'] ??
+                        stMap['xodim_id'],
+                  );
+                  if (stId > 0) {
+                    staffIdToBranch[stId] = targetBranchId;
+                  }
                 }
               }
             }
           }
 
           _staffNameToBranchId = staffNameToBranch;
+          _staffIdToBranchId = staffIdToBranch;
           parsedBranches.sort(
             (a, b) =>
                 ((a['id'] as int?) ?? 0).compareTo((b['id'] as int?) ?? 0),
@@ -174,6 +231,38 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
     } catch (_) {}
   }
 
+  bool _isSameStaff(String name1, String name2) {
+    final n1 = name1.trim().toLowerCase();
+    final n2 = name2.trim().toLowerCase();
+    if (n1.isEmpty || n2.isEmpty) return false;
+    if (n1 == n2) return true;
+
+    final words1 = n1
+        .split(RegExp(r"[\s\-_',.]+"))
+        .where((w) => w.length >= 2)
+        .toList();
+    final words2 = n2
+        .split(RegExp(r"[\s\-_',.]+"))
+        .where((w) => w.length >= 2)
+        .toList();
+    if (words1.isEmpty || words2.isEmpty) return false;
+
+    final set1 = words1.toSet();
+    final set2 = words2.toSet();
+
+    if (set1.length == set2.length && set1.containsAll(set2)) return true;
+
+    final common =
+        set1.intersection(set2).where((w) => w.length >= 3).toList();
+    if (common.length >= 2) return true;
+
+    if (set1.length == 1 && set2.length == 1 && set1.first == set2.first) {
+      return true;
+    }
+
+    return false;
+  }
+
   bool _isStaffInBranch(RahbarStaffAttendanceEntity s, int branchId) {
     if (_branches.isEmpty) return true;
     final int staffBranchId = _getStaffBranchId(s);
@@ -182,34 +271,32 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
 
   int _getStaffBranchId(RahbarStaffAttendanceEntity s) {
     if (_branches.isEmpty) return 0;
-    if (_branches.length == 1) {
-      return (_branches.first['id'] as num?)?.toInt() ?? 0;
+
+    // 0. Direct ID match from Filial Report (getFilial)
+    if (_staffIdToBranchId.containsKey(s.id)) {
+      final bId = _staffIdToBranchId[s.id]!;
+      return bId;
     }
 
-    // 0. Direct match from Filial Report (getFilial)
+    // 1. Direct Name match from Filial Report (getFilial)
     final staffNameLower = s.name.trim().toLowerCase();
     if (_staffNameToBranchId.containsKey(staffNameLower)) {
       return _staffNameToBranchId[staffNameLower]!;
     }
     for (final entry in _staffNameToBranchId.entries) {
-      if (staffNameLower.contains(entry.key) ||
-          entry.key.contains(staffNameLower)) {
+      if (_isSameStaff(staffNameLower, entry.key)) {
         return entry.value;
-      }
-    }
-
-    // 1. Match by explicit filialId
-    if (s.filialId != null) {
-      for (final b in _branches) {
-        if ((b['id'] as num?)?.toInt() == s.filialId) {
-          return s.filialId!;
-        }
       }
     }
 
     // 2. Match by explicit filialName
     if (s.filialName != null && s.filialName!.trim().isNotEmpty) {
       final sName = s.filialName!.trim().toLowerCase();
+      if (sName.contains('biriktirilmagan') ||
+          sName.contains('unassigned') ||
+          sName == 'null') {
+        return 0;
+      }
       for (final b in _branches) {
         final bName = (b['name'] ?? '').toString().trim().toLowerCase();
         if (bName.isNotEmpty &&
@@ -221,32 +308,17 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
       }
     }
 
-    // 2.5. Match if filialName indicates unassigned
-    if (s.filialName != null) {
-      final fnLower = s.filialName!.toLowerCase();
-      if (fnLower.contains('biriktirilmagan') ||
-          fnLower.contains('unassigned')) {
-        for (final b in _branches) {
-          if ((b['id'] as num?)?.toInt() == 0) return 0;
-        }
-      }
-    }
-
-    // 3. Match if branch name contains staff name (e.g. personal assigned zone)
-    if (staffNameLower.isNotEmpty) {
+    // 3. Match by explicit filialId
+    if (s.filialId != null && s.filialId! > 0) {
       for (final b in _branches) {
-        final bName = (b['name'] ?? '').toString().trim().toLowerCase();
-        final nameParts = staffNameLower.split(' ');
-        for (final part in nameParts) {
-          if (part.length >= 4 && bName.contains(part)) {
-            return (b['id'] as num?)?.toInt() ?? 0;
-          }
+        if ((b['id'] as num?)?.toInt() == s.filialId) {
+          return s.filialId!;
         }
       }
     }
 
-    // 5. Default to first branch
-    return (_branches.first['id'] as num?)?.toInt() ?? 0;
+    // 4. Default: return 0 (unassigned). NEVER default to first branch!
+    return 0;
   }
 
   void _logBranchInfo(

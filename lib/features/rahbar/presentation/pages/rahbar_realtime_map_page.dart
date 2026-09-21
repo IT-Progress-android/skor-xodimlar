@@ -246,28 +246,35 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
             if (stName.isNotEmpty) {
               staffNameToBranch[stName] = 0;
             }
-            final stId = _parseInt(stMap['id'] ?? stMap['staff_id']);
+            final stId = _parseInt(
+              stMap['id'] ??
+                  stMap['staff_id'] ??
+                  stMap['user_id'] ??
+                  stMap['xodim_id'],
+            );
             if (stId > 0) {
               staffIdToBranch[stId] = 0;
             }
           }
         } else {
           int? targetBranchId;
-          if (fId > 0) {
-            for (final b in parsedBranches) {
-              if (b.id == fId) {
-                targetBranchId = b.id;
-                break;
-              }
-            }
-          }
-          if (targetBranchId == null && fNom.isNotEmpty) {
+          // 1. Match by branch name first!
+          if (fNom.isNotEmpty) {
             final nomLower = fNom.toLowerCase();
             for (final b in parsedBranches) {
               final bName = b.name.toLowerCase();
               if (bName == nomLower ||
                   bName.contains(nomLower) ||
                   nomLower.contains(bName)) {
+                targetBranchId = b.id;
+                break;
+              }
+            }
+          }
+          // 2. Fallback to fId only if name matching did not find branch
+          if (targetBranchId == null && fId > 0) {
+            for (final b in parsedBranches) {
+              if (b.id == fId) {
                 targetBranchId = b.id;
                 break;
               }
@@ -284,7 +291,12 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
               if (stName.isNotEmpty) {
                 staffNameToBranch[stName] = targetBranchId;
               }
-              final stId = _parseInt(stMap['id'] ?? stMap['staff_id']);
+              final stId = _parseInt(
+                stMap['id'] ??
+                    stMap['staff_id'] ??
+                    stMap['user_id'] ??
+                    stMap['xodim_id'],
+              );
               if (stId > 0) {
                 staffIdToBranch[stId] = targetBranchId;
               }
@@ -299,12 +311,6 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
       _branches = parsedBranches;
 
       final List<_StaffMapItem> parsedStaff = [];
-      final currentBranch =
-          (_branches.isNotEmpty &&
-              _selectedBranchIndex >= 0 &&
-              _selectedBranchIndex < _branches.length)
-          ? _branches[_selectedBranchIndex]
-          : (_branches.isNotEmpty ? _branches.first : null);
 
       // Map live locations by staff ID and normalized name
       final Map<int, Map<String, dynamic>> liveById = {};
@@ -380,8 +386,6 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
             break;
           }
         }
-        staffBranch ??=
-            currentBranch ?? (_branches.isNotEmpty ? _branches.first : null);
 
         // Geofence masofasini hisoblash (xodim biriktirilgan O'Z filialiga nisbatan)
         bool isInsideReal = isInside;
@@ -437,7 +441,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
             photo: s.photo,
             lat: staffLat,
             lng: staffLng,
-            filialId: staffBranch?.id ?? targetBranchId,
+            filialId: targetBranchId,
             filialName: staffBranch?.name ?? s.filialName,
             attendanceStatus: liveAtt.isNotEmpty
                 ? liveAtt
@@ -495,8 +499,6 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
                 break;
               }
             }
-            liveBranch ??=
-                currentBranch ?? (_branches.isNotEmpty ? _branches.first : null);
 
             double distanceMeters = 0.0;
             bool isInsideReal = false;
@@ -527,7 +529,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
                     item['photo']?.toString() ?? item['photo_url']?.toString(),
                 lat: lLat,
                 lng: lLng,
-                filialId: liveBranch?.id ?? liveTargetBranchId,
+                filialId: liveTargetBranchId,
                 filialName: liveBranch?.name,
                 attendanceStatus: lAtt,
                 holat: isInsideReal
@@ -576,6 +578,38 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
     }
   }
 
+  bool _isSameStaff(String name1, String name2) {
+    final n1 = name1.trim().toLowerCase();
+    final n2 = name2.trim().toLowerCase();
+    if (n1.isEmpty || n2.isEmpty) return false;
+    if (n1 == n2) return true;
+
+    final words1 = n1
+        .split(RegExp(r"[\s\-_',.]+"))
+        .where((w) => w.length >= 2)
+        .toList();
+    final words2 = n2
+        .split(RegExp(r"[\s\-_',.]+"))
+        .where((w) => w.length >= 2)
+        .toList();
+    if (words1.isEmpty || words2.isEmpty) return false;
+
+    final set1 = words1.toSet();
+    final set2 = words2.toSet();
+
+    if (set1.length == set2.length && set1.containsAll(set2)) return true;
+
+    final common =
+        set1.intersection(set2).where((w) => w.length >= 3).toList();
+    if (common.length >= 2) return true;
+
+    if (set1.length == 1 && set2.length == 1 && set1.first == set2.first) {
+      return true;
+    }
+
+    return false;
+  }
+
   int _getStaffBranchId({
     required int? filialId,
     required String? filialName,
@@ -585,75 +619,53 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
     required double lng,
   }) {
     if (_branches.isEmpty) return 0;
-    if (_branches.length == 1) return _branches.first.id;
-
-    final staffNameLower = staffName.trim().toLowerCase();
 
     // 1. Direct ID match from Filial Report (getFilial)
-    if (staffId != null && _staffIdToBranchId.containsKey(staffId)) {
+    if (staffId != null &&
+        staffId > 0 &&
+        _staffIdToBranchId.containsKey(staffId)) {
       final bId = _staffIdToBranchId[staffId]!;
-      if (_branches.any((b) => b.id == bId)) return bId;
+      return bId;
     }
 
     // 2. Direct Name match from Filial Report (getFilial)
+    final staffNameLower = staffName.trim().toLowerCase();
     if (_staffNameToBranchId.containsKey(staffNameLower)) {
-      final bId = _staffNameToBranchId[staffNameLower]!;
-      if (_branches.any((b) => b.id == bId)) return bId;
+      return _staffNameToBranchId[staffNameLower]!;
     }
     for (final entry in _staffNameToBranchId.entries) {
-      if (staffNameLower.isNotEmpty &&
-          (staffNameLower.contains(entry.key) ||
-              entry.key.contains(staffNameLower))) {
-        if (_branches.any((b) => b.id == entry.value)) return entry.value;
+      if (_isSameStaff(staffNameLower, entry.key)) {
+        return entry.value;
       }
     }
 
-    // 3. Explicit filial ID from attendance record
-    if (filialId != null) {
-      for (final b in _branches) {
-        if (b.id == filialId) return filialId;
-      }
-    }
-
-    // 4. Explicit filial name from attendance record
+    // 3. Explicit filial name from attendance record
     if (filialName != null && filialName.trim().isNotEmpty) {
       final sName = filialName.trim().toLowerCase();
+      if (sName.contains('biriktirilmagan') ||
+          sName.contains('unassigned') ||
+          sName == 'null') {
+        return 0;
+      }
       for (final b in _branches) {
         final bName = b.name.trim().toLowerCase();
-        if (bName.isNotEmpty &&
-            (sName == bName ||
-                sName.contains(bName) ||
-                bName.contains(sName))) {
+        if (bName == sName ||
+            bName.contains(sName) ||
+            sName.contains(bName)) {
           return b.id;
         }
       }
     }
 
-    // 5. If filialName indicates unassigned, return branch 0 if exists
-    if (filialName != null) {
-      final fnLower = filialName.toLowerCase();
-      if (fnLower.contains('biriktirilmagan') ||
-          fnLower.contains('unassigned')) {
-        for (final b in _branches) {
-          if (b.id == 0) return 0;
-        }
-      }
-    }
-
-    // 6. Name parts matching branch name
-    if (staffNameLower.isNotEmpty) {
+    // 4. Explicit filial ID from attendance record
+    if (filialId != null && filialId > 0) {
       for (final b in _branches) {
-        final bName = b.name.trim().toLowerCase();
-        final nameParts = staffNameLower.split(' ');
-        for (final part in nameParts) {
-          if (part.length >= 4 && bName.contains(part)) {
-            return b.id;
-          }
-        }
+        if (b.id == filialId) return filialId;
       }
     }
 
-    return _branches.isNotEmpty ? _branches.first.id : 0;
+    // 5. Default: if not matched to any branch, return 0 (unassigned). NEVER default to _branches.first.id!
+    return 0;
   }
 
   bool _isStaffInCurrentBranch(_StaffMapItem s, _BranchLocation branch) {
@@ -902,7 +914,6 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
                 break;
               }
             }
-            liveBranch ??= (_branches.isNotEmpty ? _branches.first : null);
 
             double distanceMeters = 0.0;
             bool isInside = false;
@@ -933,7 +944,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
                     item['photo']?.toString() ?? item['photo_url']?.toString(),
                 lat: lLat,
                 lng: lLng,
-                filialId: liveBranch?.id ?? liveTargetBranchId,
+                filialId: liveTargetBranchId,
                 filialName: liveBranch?.name,
                 attendanceStatus: lAtt,
                 holat: isInside
