@@ -8,8 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
-import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/core/services/fcm_service.dart';
+import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
 import 'package:skore_hodimlar/core/widgets/language_picker_bottom_sheet.dart';
 import 'package:skore_hodimlar/core/widgets/shimmer_loading_widget.dart';
@@ -254,28 +254,21 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
       item.checkOut != '-';
 
   bool _isLate(RahbarStaffAttendanceEntity item) {
-    final statusLower = item.status.toLowerCase();
-    final hasDelay =
-        item.delay != null &&
-        item.delay!.isNotEmpty &&
-        item.delay != '0' &&
-        item.delay != '00:00' &&
-        item.delay != '--' &&
-        item.delay != '0 daq';
-    return statusLower.contains('kechik') || hasDelay;
+    return BackendTextMapper.isLateStatus(item.status) ||
+        BackendTextMapper.isLate(item.delay);
   }
 
   bool _isAbsent(RahbarStaffAttendanceEntity item) {
-    final statusLower = item.status.toLowerCase();
     final hasIn = _hasCheckIn(item);
-    return statusLower.contains('kelmagan') ||
-        (!hasIn && !statusLower.contains('kelgan') && !_isLate(item));
+    return BackendTextMapper.isAbsentStatus(item.status) ||
+        (!hasIn && !BackendTextMapper.isPresentStatus(item.status) && !_isLate(item));
   }
 
   bool _isPresent(RahbarStaffAttendanceEntity item) {
-    final statusLower = item.status.toLowerCase();
     final hasIn = _hasCheckIn(item);
-    return (hasIn || statusLower.contains('kelgan') || _isLate(item)) &&
+    return (hasIn ||
+            BackendTextMapper.isPresentStatus(item.status) ||
+            _isLate(item)) &&
         !_isAbsent(item);
   }
 

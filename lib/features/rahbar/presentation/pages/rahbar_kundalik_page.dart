@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
 import 'package:skore_hodimlar/features/rahbar/data/datasources/rahbar_remote_datasource.dart';
 import 'package:skore_hodimlar/features/rahbar/domain/entities/rahbar_entity.dart';
@@ -292,10 +293,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
   String _formatDelayText(String? delayStr) {
     if (delayStr == null ||
         delayStr.isEmpty ||
-        delayStr == '0' ||
-        delayStr == '00:00' ||
-        delayStr == '--' ||
-        delayStr == '0 daq') {
+        !BackendTextMapper.isLate(delayStr)) {
       return '';
     }
     final clean = delayStr
@@ -354,28 +352,21 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
   }
 
   bool _isLate(RahbarStaffAttendanceEntity item) {
-    final statusLower = item.status.toLowerCase();
-    final hasDelay =
-        item.delay != null &&
-        item.delay!.isNotEmpty &&
-        item.delay != '0' &&
-        item.delay != '00:00' &&
-        item.delay != '--' &&
-        item.delay != '0 daq';
-    return statusLower.contains('kechik') || hasDelay;
+    return BackendTextMapper.isLateStatus(item.status) ||
+        BackendTextMapper.isLate(item.delay);
   }
 
   bool _isAbsent(RahbarStaffAttendanceEntity item) {
-    final statusLower = item.status.toLowerCase();
     final hasIn = _hasCheckIn(item);
-    return statusLower.contains('kelmagan') ||
-        (!hasIn && !statusLower.contains('kelgan') && !_isLate(item));
+    return BackendTextMapper.isAbsentStatus(item.status) ||
+        (!hasIn && !BackendTextMapper.isPresentStatus(item.status) && !_isLate(item));
   }
 
   bool _isPresent(RahbarStaffAttendanceEntity item) {
-    final statusLower = item.status.toLowerCase();
     final hasIn = _hasCheckIn(item);
-    return (hasIn || statusLower.contains('kelgan') || _isLate(item)) &&
+    return (hasIn ||
+            BackendTextMapper.isPresentStatus(item.status) ||
+            _isLate(item)) &&
         !_isAbsent(item);
   }
 
@@ -1238,7 +1229,8 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
 
             // Row 3: Kechikish vaqti (Qancha vaqt kechikkani) if late
             if (isLate &&
-                (delayFormatted.isNotEmpty || item.delay != null)) ...[
+                (delayFormatted.isNotEmpty ||
+                    BackendTextMapper.isLate(item.delay))) ...[
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,

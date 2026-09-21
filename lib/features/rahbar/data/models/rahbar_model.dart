@@ -221,7 +221,7 @@ class RahbarStaffAttendanceModel extends RahbarStaffAttendanceEntity {
         json['delay'] ??
         json['kechikish'] ??
         json['kechikish_daqiqa'] ??
-        json['kechikkan'] ??
+        (json['kechikkan'] is! bool ? json['kechikkan'] : null) ??
         json['late_minutes'] ??
         json['late_time'] ??
         json['late'];

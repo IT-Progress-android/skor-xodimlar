@@ -43,7 +43,7 @@ void main() {
     });
   });
 
-  group('BackendTextMapper - isLate helper', () {
+  group('BackendTextMapper - isLate and sanitizeDelay helpers', () {
     test('Identifies non-late and late delays correctly', () {
       expect(BackendTextMapper.isLate(null), false);
       expect(BackendTextMapper.isLate(''), false);
@@ -52,11 +52,57 @@ void main() {
       expect(BackendTextMapper.isLate('0'), false);
       expect(BackendTextMapper.isLate('00:00'), false);
       expect(BackendTextMapper.isLate('--'), false);
+      expect(BackendTextMapper.isLate('-'), false);
       expect(BackendTextMapper.isLate('Нет'), false);
+      expect(BackendTextMapper.isLate('+Нет'), false);
+      expect(BackendTextMapper.isLate('+yo\'q'), false);
+      expect(BackendTextMapper.isLate('no'), false);
+      expect(BackendTextMapper.isLate('жок'), false);
+      expect(BackendTextMapper.isLate('false'), false);
+      expect(BackendTextMapper.isLate('0 daq'), false);
 
       expect(BackendTextMapper.isLate('15 min'), true);
       expect(BackendTextMapper.isLate('00:25'), true);
       expect(BackendTextMapper.isLate('1 soat 10 min'), true);
+    });
+
+    test('sanitizeDelay returns null for non-late delays and trims actual delays', () {
+      expect(BackendTextMapper.sanitizeDelay(null), null);
+      expect(BackendTextMapper.sanitizeDelay(''), null);
+      expect(BackendTextMapper.sanitizeDelay("Yo'q"), null);
+      expect(BackendTextMapper.sanitizeDelay('Yo‘q'), null);
+      expect(BackendTextMapper.sanitizeDelay('0'), null);
+      expect(BackendTextMapper.sanitizeDelay('00:00'), null);
+      expect(BackendTextMapper.sanitizeDelay('--'), null);
+      expect(BackendTextMapper.sanitizeDelay('Нет'), null);
+      expect(BackendTextMapper.sanitizeDelay('+Нет'), null);
+      expect(BackendTextMapper.sanitizeDelay('false'), null);
+
+      expect(BackendTextMapper.sanitizeDelay('15 min'), '15 min');
+      expect(BackendTextMapper.sanitizeDelay('00:25'), '00:25');
+    });
+
+    test('Status helpers identify late, absent, and present across languages', () {
+      // Late
+      expect(BackendTextMapper.isLateStatus('Kechikkan'), true);
+      expect(BackendTextMapper.isLateStatus('Опоздал'), true);
+      expect(BackendTextMapper.isLateStatus('Опоздали'), true);
+      expect(BackendTextMapper.isLateStatus('Late'), true);
+      expect(BackendTextMapper.isLateStatus('Кечиккен'), true);
+      expect(BackendTextMapper.isLateStatus('Присутствовал'), false);
+
+      // Absent
+      expect(BackendTextMapper.isAbsentStatus('Kelmagan'), true);
+      expect(BackendTextMapper.isAbsentStatus('Отсутствовал'), true);
+      expect(BackendTextMapper.isAbsentStatus('Absent'), true);
+      expect(BackendTextMapper.isAbsentStatus('Присутствовал'), false);
+
+      // Present
+      expect(BackendTextMapper.isPresentStatus('Kelgan'), true);
+      expect(BackendTextMapper.isPresentStatus('Присутствовал'), true);
+      expect(BackendTextMapper.isPresentStatus('Пришёл'), true);
+      expect(BackendTextMapper.isPresentStatus('Present'), true);
+      expect(BackendTextMapper.isPresentStatus('Отсутствовал'), false);
     });
   });
 
