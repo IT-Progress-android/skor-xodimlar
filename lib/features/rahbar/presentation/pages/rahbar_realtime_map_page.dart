@@ -214,28 +214,18 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
         }
       }
 
-      // If backend has no branches configured yet, use default fallback
-      if (parsedBranches.isEmpty) {
-        parsedBranches.add(
-          _BranchLocation(
-            id: 1,
-            name: context.tr('rahbar_main_office'),
-            lat: 41.311081,
-            lng: 69.240562,
-            radius: 150.0,
-          ),
-        );
-      }
-
       // Build staff name and ID -> branch ID mapping from Filial Report (getFilial)
       final rawFiliallar = (filialReport['filiallar'] as List?) ?? const [];
       final Map<String, int> staffNameToBranch = {};
       final Map<int, int> staffIdToBranch = {};
+      _BranchLocation? unassignedBranchObj;
 
       for (final f in rawFiliallar) {
         final fMap = Map<String, dynamic>.from(f as Map);
         final fNom = (fMap['nom'] ?? fMap['name'] ?? '').toString().trim();
-        final fId = _parseInt(fMap['id'] ?? fMap['filial_id'] ?? fMap['location_id']);
+        final fId = _parseInt(
+          fMap['id'] ?? fMap['filial_id'] ?? fMap['location_id'],
+        );
         final fStaff = (fMap['xodimlar'] as List?) ?? const [];
 
         final isUnassigned =
@@ -243,7 +233,33 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
             fNom.toLowerCase().contains('biriktirilmagan') ||
             fNom.toLowerCase().contains('unassigned');
 
-        if (!isUnassigned) {
+        if (isUnassigned) {
+          if (fStaff.isNotEmpty) {
+            final unassignedName =
+                fNom.isNotEmpty ? fNom : 'Filial biriktirilmagan';
+            unassignedBranchObj = _BranchLocation(
+              id: 0,
+              name: unassignedName,
+              lat: 0.0,
+              lng: 0.0,
+              radius: 0.0,
+            );
+            for (final st in fStaff) {
+              final stMap = Map<String, dynamic>.from(st as Map);
+              final stName = (stMap['name'] ?? stMap['xodim'] ?? '')
+                  .toString()
+                  .trim()
+                  .toLowerCase();
+              if (stName.isNotEmpty) {
+                staffNameToBranch[stName] = 0;
+              }
+              final stId = _parseInt(stMap['id'] ?? stMap['staff_id']);
+              if (stId > 0) {
+                staffIdToBranch[stId] = 0;
+              }
+            }
+          }
+        } else {
           int? targetBranchId;
           if (fId > 0) {
             for (final b in parsedBranches) {
@@ -288,6 +304,9 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
       _staffNameToBranchId = staffNameToBranch;
       _staffIdToBranchId = staffIdToBranch;
       parsedBranches.sort((a, b) => a.id.compareTo(b.id));
+      if (unassignedBranchObj != null) {
+        parsedBranches.add(unassignedBranchObj);
+      }
       _branches = parsedBranches;
 
       final List<_StaffMapItem> parsedStaff = [];
@@ -372,44 +391,29 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
             break;
           }
         }
-        staffBranch ??= currentBranch ?? (_branches.isNotEmpty ? _branches.first : null);
+        staffBranch ??=
+            currentBranch ?? (_branches.isNotEmpty ? _branches.first : null);
 
-        // Real geofence masofasini hisoblash (eng yaqin filial hududiga nisbatan)
+        // Geofence masofasini hisoblash (xodim biriktirilgan O'Z filialiga nisbatan)
         bool isInsideReal = isInside;
         String calculatedHolat = liveHolat;
         double distanceMeters = 0.0;
-        _BranchLocation? closestBranch = staffBranch;
 
-        if (staffLat != 0.0 && staffLng != 0.0) {
-          double minDistance = double.infinity;
-          for (final b in _branches) {
-            if (b.lat != 0.0 && b.lng != 0.0) {
-              final d = Geolocator.distanceBetween(
-                staffLat,
-                staffLng,
-                b.lat,
-                b.lng,
-              );
-              if (d < minDistance) {
-                minDistance = d;
-                closestBranch = b;
-              }
-            }
-          }
-          distanceMeters = minDistance.isFinite
-              ? minDistance
-              : (staffBranch != null
-                  ? Geolocator.distanceBetween(
-                      staffLat,
-                      staffLng,
-                      staffBranch.lat,
-                      staffBranch.lng,
-                    )
-                  : 0.0);
-
-          isInsideReal =
-              closestBranch != null && distanceMeters <= closestBranch.radius;
+        if (staffBranch != null &&
+            staffBranch.lat != 0.0 &&
+            staffBranch.lng != 0.0 &&
+            staffLat != 0.0 &&
+            staffLng != 0.0) {
+          distanceMeters = Geolocator.distanceBetween(
+            staffLat,
+            staffLng,
+            staffBranch.lat,
+            staffBranch.lng,
+          );
+          isInsideReal = distanceMeters <= staffBranch.radius;
           calculatedHolat = isInsideReal ? 'hududda' : 'tashqarida';
+        } else if (staffLat != 0.0 && staffLng != 0.0) {
+          calculatedHolat = 'tashqarida';
         } else {
           calculatedHolat = isInside ? 'hududda' : 'joylashuv_yoq';
         }
@@ -444,14 +448,8 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
             photo: s.photo,
             lat: staffLat,
             lng: staffLng,
-            filialId: (s.filialId != null && s.filialId! > 0)
-                ? s.filialId
-                : (targetBranchId > 0
-                    ? targetBranchId
-                    : (closestBranch?.id ?? staffBranch?.id)),
-            filialName: (s.filialName != null && s.filialName!.isNotEmpty)
-                ? s.filialName
-                : (staffBranch?.name ?? closestBranch?.name),
+            filialId: staffBranch?.id ?? targetBranchId,
+            filialName: staffBranch?.name ?? s.filialName,
             attendanceStatus: liveAtt.isNotEmpty
                 ? liveAtt
                 : (isInside ? 'ishda' : (hasCheckIn ? 'ketgan' : 'kelmagan')),
@@ -491,38 +489,39 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
             final lAtt = (item['attendance_status'] ?? 'ishda').toString();
             final lHolat = (item['holat'] ?? 'hududda').toString();
 
-            final _BranchLocation effectiveBranch =
-                currentBranch ??
-                (_branches.isNotEmpty
-                    ? _branches.first
-                    : _BranchLocation(
-                        id: 1,
-                        name: context.tr('rahbar_main_office'),
-                        lat: 41.311081,
-                        lng: 69.240562,
-                        radius: 150.0,
-                      ));
+            final int liveTargetBranchId = _getStaffBranchId(
+              filialId: _parseInt(item['filial_id'] ?? item['branch_id']),
+              filialName:
+                  (item['filial_name'] ?? item['branch_name'])?.toString(),
+              staffName: lName,
+              staffId: lid,
+              lat: lLat,
+              lng: lLng,
+            );
 
-            _BranchLocation closestBranch = effectiveBranch;
-            double minDistance = double.infinity;
+            _BranchLocation? liveBranch;
             for (final b in _branches) {
-              if (b.lat != 0.0 && b.lng != 0.0) {
-                final d = Geolocator.distanceBetween(lLat, lLng, b.lat, b.lng);
-                if (d < minDistance) {
-                  minDistance = d;
-                  closestBranch = b;
-                }
+              if (b.id == liveTargetBranchId) {
+                liveBranch = b;
+                break;
               }
             }
-            final double distanceMeters = minDistance.isFinite
-                ? minDistance
-                : Geolocator.distanceBetween(
-                    lLat,
-                    lLng,
-                    effectiveBranch.lat,
-                    effectiveBranch.lng,
-                  );
-            final bool isInsideReal = distanceMeters <= closestBranch.radius;
+            liveBranch ??=
+                currentBranch ?? (_branches.isNotEmpty ? _branches.first : null);
+
+            double distanceMeters = 0.0;
+            bool isInsideReal = false;
+            if (liveBranch != null &&
+                liveBranch.lat != 0.0 &&
+                liveBranch.lng != 0.0) {
+              distanceMeters = Geolocator.distanceBetween(
+                lLat,
+                lLng,
+                liveBranch.lat,
+                liveBranch.lng,
+              );
+              isInsideReal = distanceMeters <= liveBranch.radius;
+            }
 
             parsedStaff.add(
               _StaffMapItem(
@@ -539,13 +538,13 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
                     item['photo']?.toString() ?? item['photo_url']?.toString(),
                 lat: lLat,
                 lng: lLng,
-                filialId: closestBranch.id,
-                filialName: closestBranch.name,
+                filialId: liveBranch?.id ?? liveTargetBranchId,
+                filialName: liveBranch?.name,
                 attendanceStatus: lAtt,
                 holat: isInsideReal
                     ? 'hududda'
                     : (lHolat.isNotEmpty ? lHolat : 'tashqarida'),
-                distanceMeters: minDistance.isFinite ? minDistance : 0.0,
+                distanceMeters: distanceMeters,
                 lastUpdated: (() {
                   final String? t =
                       item['time']?.toString() ??
@@ -621,7 +620,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
     }
 
     // 3. Explicit filial ID from attendance record
-    if (filialId != null && filialId > 0) {
+    if (filialId != null) {
       for (final b in _branches) {
         if (b.id == filialId) return filialId;
       }
@@ -641,37 +640,14 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
       }
     }
 
-    // 5. Match branch by staff's real GPS coordinates (inside geofence or closest)
-    if (lat != 0.0 && lng != 0.0) {
-      _BranchLocation? insideBranch;
-      double minInsideDist = double.infinity;
-      for (final b in _branches) {
-        if (b.lat != 0.0 && b.lng != 0.0) {
-          final d = Geolocator.distanceBetween(lat, lng, b.lat, b.lng);
-          if (d <= b.radius && d < minInsideDist) {
-            minInsideDist = d;
-            insideBranch = b;
-          }
+    // 5. If filialName indicates unassigned, return branch 0 if exists
+    if (filialName != null) {
+      final fnLower = filialName.toLowerCase();
+      if (fnLower.contains('biriktirilmagan') ||
+          fnLower.contains('unassigned')) {
+        for (final b in _branches) {
+          if (b.id == 0) return 0;
         }
-      }
-      if (insideBranch != null) {
-        return insideBranch.id;
-      }
-
-      // Closest branch
-      _BranchLocation? closestBranch;
-      double minDistance = double.infinity;
-      for (final b in _branches) {
-        if (b.lat != 0.0 && b.lng != 0.0) {
-          final d = Geolocator.distanceBetween(lat, lng, b.lat, b.lng);
-          if (d < minDistance) {
-            minDistance = d;
-            closestBranch = b;
-          }
-        }
-      }
-      if (closestBranch != null) {
-        return closestBranch.id;
       }
     }
 
@@ -688,53 +664,10 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
       }
     }
 
-    return 0;
+    return _branches.isNotEmpty ? _branches.first.id : 0;
   }
 
   bool _isStaffInCurrentBranch(_StaffMapItem s, _BranchLocation branch) {
-    // 1. If staff has real coordinates, physical location is authoritative!
-    if (s.lat != 0.0 && s.lng != 0.0 && branch.lat != 0.0 && branch.lng != 0.0) {
-      final distToThisBranch = Geolocator.distanceBetween(
-        s.lat,
-        s.lng,
-        branch.lat,
-        branch.lng,
-      );
-
-      final bool insideThisBranch = distToThisBranch <= branch.radius;
-
-      double minOtherDist = double.infinity;
-      bool insideOtherBranch = false;
-      for (final other in _branches) {
-        if (other.id != branch.id && other.lat != 0.0 && other.lng != 0.0) {
-          final d = Geolocator.distanceBetween(
-            s.lat,
-            s.lng,
-            other.lat,
-            other.lng,
-          );
-          if (d < minOtherDist) minOtherDist = d;
-          if (d <= other.radius) {
-            insideOtherBranch = true;
-          }
-        }
-      }
-
-      // If physically inside this branch:
-      if (insideThisBranch) {
-        // If not overlapping with another branch or closer to this branch than other:
-        if (!insideOtherBranch || distToThisBranch <= minOtherDist) {
-          return true;
-        }
-      }
-
-      // If physically inside another branch, they belong to that other branch!
-      if (insideOtherBranch && minOtherDist < distToThisBranch) {
-        return false;
-      }
-    }
-
-    // 2. Explicit or resolved branch matching
     final staffBranchId = _getStaffBranchId(
       filialId: s.filialId,
       filialName: s.filialName,
@@ -842,32 +775,27 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
         }
 
         if (staffLat != 0.0 && staffLng != 0.0) {
-          // Calculate distance to closest branch
-          double minDistance = double.infinity;
-          _BranchLocation? closestBranch;
+          _BranchLocation? staffBranch;
           for (final b in _branches) {
-            if (b.lat != 0.0 && b.lng != 0.0) {
-              final d = Geolocator.distanceBetween(
-                staffLat,
-                staffLng,
-                b.lat,
-                b.lng,
-              );
-              if (d < minDistance) {
-                minDistance = d;
-                closestBranch = b;
-              }
+            if (b.id == s.filialId) {
+              staffBranch = b;
+              break;
             }
           }
-          final isInside =
-              closestBranch != null && minDistance <= closestBranch.radius;
 
-          final effectiveFilialId = (s.filialId != null && s.filialId! > 0)
-              ? s.filialId
-              : closestBranch?.id;
-          final effectiveFilialName = (s.filialName != null && s.filialName!.isNotEmpty)
-              ? s.filialName
-              : closestBranch?.name;
+          double distanceMeters = 0.0;
+          bool isInside = s.isInside;
+          if (staffBranch != null &&
+              staffBranch.lat != 0.0 &&
+              staffBranch.lng != 0.0) {
+            distanceMeters = Geolocator.distanceBetween(
+              staffLat,
+              staffLng,
+              staffBranch.lat,
+              staffBranch.lng,
+            );
+            isInside = distanceMeters <= staffBranch.radius;
+          }
 
           _allStaff[i] = _StaffMapItem(
             id: s.id,
@@ -881,13 +809,11 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
             photo: s.photo,
             lat: staffLat,
             lng: staffLng,
-            filialId: effectiveFilialId,
-            filialName: effectiveFilialName,
+            filialId: s.filialId,
+            filialName: s.filialName,
             attendanceStatus: s.attendanceStatus,
             holat: isInside ? 'hududda' : 'tashqarida',
-            distanceMeters: minDistance.isFinite
-                ? minDistance
-                : s.distanceMeters,
+            distanceMeters: distanceMeters,
             lastUpdated: (() {
               final String? t =
                   liveItem['time']?.toString() ??
@@ -938,22 +864,38 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
             final lAtt = (item['attendance_status'] ?? 'ishda').toString();
             final lHolat = (item['holat'] ?? 'hududda').toString();
 
-            final effectiveBranch = _branches.isNotEmpty
-                ? _branches.first
-                : null;
-            double minDistance = double.infinity;
-            _BranchLocation? closestBranch = effectiveBranch;
+            final int liveTargetBranchId = _getStaffBranchId(
+              filialId: _parseInt(item['filial_id'] ?? item['branch_id']),
+              filialName:
+                  (item['filial_name'] ?? item['branch_name'])?.toString(),
+              staffName: lName,
+              staffId: lid,
+              lat: lLat,
+              lng: lLng,
+            );
+
+            _BranchLocation? liveBranch;
             for (final b in _branches) {
-              if (b.lat != 0.0 && b.lng != 0.0) {
-                final d = Geolocator.distanceBetween(lLat, lLng, b.lat, b.lng);
-                if (d < minDistance) {
-                  minDistance = d;
-                  closestBranch = b;
-                }
+              if (b.id == liveTargetBranchId) {
+                liveBranch = b;
+                break;
               }
             }
-            final isInside =
-                closestBranch != null && minDistance <= closestBranch.radius;
+            liveBranch ??= (_branches.isNotEmpty ? _branches.first : null);
+
+            double distanceMeters = 0.0;
+            bool isInside = false;
+            if (liveBranch != null &&
+                liveBranch.lat != 0.0 &&
+                liveBranch.lng != 0.0) {
+              distanceMeters = Geolocator.distanceBetween(
+                lLat,
+                lLng,
+                liveBranch.lat,
+                liveBranch.lng,
+              );
+              isInside = distanceMeters <= liveBranch.radius;
+            }
 
             _allStaff.add(
               _StaffMapItem(
@@ -970,13 +912,13 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
                     item['photo']?.toString() ?? item['photo_url']?.toString(),
                 lat: lLat,
                 lng: lLng,
-                filialId: closestBranch?.id,
-                filialName: closestBranch?.name,
+                filialId: liveBranch?.id ?? liveTargetBranchId,
+                filialName: liveBranch?.name,
                 attendanceStatus: lAtt,
                 holat: isInside
                     ? 'hududda'
                     : (lHolat.isNotEmpty ? lHolat : 'tashqarida'),
-                distanceMeters: minDistance.isFinite ? minDistance : 0.0,
+                distanceMeters: distanceMeters,
                 lastUpdated: (() {
                   final String? t =
                       item['time']?.toString() ??
@@ -1014,10 +956,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
 
   void _filterStaff(String query) {
     List<_StaffMapItem> baseStaff;
-    if (_selectedBranchIndex == -1) {
-      // BARCHA FILIALLAR — xodim hududda yoki tashqarida bo'lishidan qat'i nazar
-      baseStaff = _allStaff;
-    } else if (_branches.isNotEmpty) {
+    if (_branches.isNotEmpty) {
       final currentBranch =
           _branches[_selectedBranchIndex.clamp(0, _branches.length - 1)];
       baseStaff = _allStaff
@@ -1045,6 +984,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
     // 1. Draw all configured branches (circles & clean center dots)
     for (int i = 0; i < _branches.length; i++) {
       final branch = _branches[i];
+      if (branch.lat == 0.0 || branch.lng == 0.0) continue;
       final bool isCurrent = i == _selectedBranchIndex;
 
       // Circle geofence zone
@@ -1125,21 +1065,23 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
           (_selectedBranchIndex >= 0 && _selectedBranchIndex < _branches.length)
           ? _branches[_selectedBranchIndex]
           : _branches.first;
-      final start = Point(
-        latitude: currentBranch.lat,
-        longitude: currentBranch.lng,
-      );
+      if (currentBranch.lat != 0.0 && currentBranch.lng != 0.0) {
+        final start = Point(
+          latitude: currentBranch.lat,
+          longitude: currentBranch.lng,
+        );
 
-      _mapObjects.add(
-        PolylineMapObject(
-          mapId: const MapObjectId('in_app_staff_route'),
-          polyline: Polyline(points: [start, _activeRouteTarget!]),
-          strokeColor: const Color(0xFF0D6E6E),
-          strokeWidth: 4.0,
-          outlineColor: Colors.white,
-          outlineWidth: 1.5,
-        ),
-      );
+        _mapObjects.add(
+          PolylineMapObject(
+            mapId: const MapObjectId('in_app_staff_route'),
+            polyline: Polyline(points: [start, _activeRouteTarget!]),
+            strokeColor: const Color(0xFF0D6E6E),
+            strokeWidth: 4.0,
+            outlineColor: Colors.white,
+            outlineWidth: 1.5,
+          ),
+        );
+      }
     }
 
     if (mounted) setState(() {});
@@ -1147,13 +1089,16 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
 
   void _moveCameraToBranch() {
     if (_branches.isEmpty) return;
-    if (_selectedBranchIndex == -1) {
-      final b = _branches.first;
+    final b =
+        (_selectedBranchIndex >= 0 && _selectedBranchIndex < _branches.length)
+        ? _branches[_selectedBranchIndex]
+        : _branches.first;
+    if (b.lat != 0.0 && b.lng != 0.0) {
       _controller?.moveCamera(
         CameraUpdate.newCameraPosition(
           CameraPosition(
             target: Point(latitude: b.lat, longitude: b.lng),
-            zoom: 13.5,
+            zoom: 15.5,
           ),
         ),
         animation: const MapAnimation(
@@ -1161,24 +1106,25 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
           duration: 0.8,
         ),
       );
-      return;
+    } else {
+      final staffWithCoords =
+          _filteredStaff.where((s) => s.lat != 0.0 && s.lng != 0.0).toList();
+      if (staffWithCoords.isNotEmpty) {
+        final firstStaff = staffWithCoords.first;
+        _controller?.moveCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: Point(latitude: firstStaff.lat, longitude: firstStaff.lng),
+              zoom: 15.5,
+            ),
+          ),
+          animation: const MapAnimation(
+            type: MapAnimationType.smooth,
+            duration: 0.8,
+          ),
+        );
+      }
     }
-    final b =
-        (_selectedBranchIndex >= 0 && _selectedBranchIndex < _branches.length)
-        ? _branches[_selectedBranchIndex]
-        : _branches.first;
-    _controller?.moveCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: Point(latitude: b.lat, longitude: b.lng),
-          zoom: 15.5,
-        ),
-      ),
-      animation: const MapAnimation(
-        type: MapAnimationType.smooth,
-        duration: 0.8,
-      ),
-    );
   }
 
   void _moveCameraToMyLoc() {
@@ -1713,53 +1659,31 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
-                            children: [
-                              Padding(
+                            children: List.generate(_branches.length, (idx) {
+                              final b = _branches[idx];
+                              final isSelected = idx == _selectedBranchIndex;
+                              final count = _allStaff
+                                  .where((s) => _isStaffInCurrentBranch(s, b))
+                                  .length;
+                              return Padding(
                                 padding: const EdgeInsets.only(right: 8),
                                 child: ChoiceChip(
-                                  label: Text(
-                                    '${context.tr('rahbar_all_branches')} (${_allStaff.length})',
-                                  ),
-                                  selected: _selectedBranchIndex == -1,
+                                  label: Text('${b.name} ($count)'),
+                                  selected: isSelected,
                                   selectedColor: const Color(0xFF0D6E6E),
                                   labelStyle: GoogleFonts.outfit(
                                     fontSize: 12,
-                                    fontWeight: _selectedBranchIndex == -1
+                                    fontWeight: isSelected
                                         ? FontWeight.bold
                                         : FontWeight.w500,
-                                    color: _selectedBranchIndex == -1
+                                    color: isSelected
                                         ? Colors.white
                                         : Colors.grey.shade800,
                                   ),
-                                  onSelected: (_) => _onBranchSelected(-1),
+                                  onSelected: (_) => _onBranchSelected(idx),
                                 ),
-                              ),
-                              ...List.generate(_branches.length, (idx) {
-                                final b = _branches[idx];
-                                final isSelected = idx == _selectedBranchIndex;
-                                final count = _allStaff
-                                    .where((s) => _isStaffInCurrentBranch(s, b))
-                                    .length;
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: ChoiceChip(
-                                    label: Text('${b.name} ($count)'),
-                                    selected: isSelected,
-                                    selectedColor: const Color(0xFF0D6E6E),
-                                    labelStyle: GoogleFonts.outfit(
-                                      fontSize: 12,
-                                      fontWeight: isSelected
-                                          ? FontWeight.bold
-                                          : FontWeight.w500,
-                                      color: isSelected
-                                          ? Colors.white
-                                          : Colors.grey.shade800,
-                                    ),
-                                    onSelected: (_) => _onBranchSelected(idx),
-                                  ),
-                                );
-                              }),
-                            ],
+                              );
+                            }),
                           ),
                         ),
                       ],

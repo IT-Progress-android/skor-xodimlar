@@ -61,35 +61,28 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
             }
           }
 
-          // If there is an unassigned group and a main branch exists with 0 staff, merge unassigned staff into main branch
-          if (unassignedBranch != null && validBranches.isNotEmpty) {
+          final List<Map<String, dynamic>> filiallar = List.from(validBranches);
+          if (unassignedBranch != null) {
             final unassignedStaff =
                 (unassignedBranch['xodimlar'] as List?) ?? [];
             final unassignedJami =
                 (unassignedBranch['jami'] as num?)?.toInt() ??
                 unassignedStaff.length;
-            final unassignedKelgan =
-                (unassignedBranch['kelgan'] as num?)?.toInt() ?? 0;
-
-            // Find first branch that has 0 staff or the main office
-            final mainBranch = validBranches.firstWhere(
-              (b) => ((b['jami'] as num?)?.toInt() ?? 0) == 0,
-              orElse: () => validBranches.first,
-            );
-
-            final currentStaff = List<dynamic>.from(
-              (mainBranch['xodimlar'] as List?) ?? [],
-            );
-            currentStaff.addAll(unassignedStaff);
-            mainBranch['xodimlar'] = currentStaff;
-            mainBranch['jami'] =
-                ((mainBranch['jami'] as num?)?.toInt() ?? 0) + unassignedJami;
-            mainBranch['kelgan'] =
-                ((mainBranch['kelgan'] as num?)?.toInt() ?? 0) +
-                unassignedKelgan;
+            if (unassignedJami > 0 || unassignedStaff.isNotEmpty) {
+              filiallar.add({
+                ...unassignedBranch,
+                'nom': (unassignedBranch['nom'] ?? '')
+                        .toString()
+                        .trim()
+                        .isNotEmpty
+                    ? unassignedBranch['nom']
+                    : 'Filial biriktirilmagan',
+                'jami': unassignedJami,
+                'kelgan': (unassignedBranch['kelgan'] as num?)?.toInt() ?? 0,
+                'xodimlar': unassignedStaff,
+              });
+            }
           }
-
-          final filiallar = validBranches;
 
           if (filiallar.isEmpty) {
             return RahbarEmptyStateWidget(

@@ -350,7 +350,6 @@ class AppTranslations {
       'rahbar_no_staff_data_period':
           'Bu davr uchun xodimlar davomati ma\'lumotlari mavjud emas',
       'rahbar_on_leave_short': 'Arizali',
-      'rahbar_main_office': 'Bosh Ofis',
       'rahbar_time_ago': '{time} ({min} daq oldin)',
       'rahbar_badge_at_work': 'Ishda',
       'rahbar_badge_left': 'Ketgan',
@@ -1010,7 +1009,6 @@ class AppTranslations {
       'rahbar_no_staff_data_period':
           'За этот период нет данных о посещаемости сотрудников',
       'rahbar_on_leave_short': 'По заявке',
-      'rahbar_main_office': 'Главный офис',
       'rahbar_time_ago': '{time} ({min} мин назад)',
       'rahbar_badge_at_work': 'На работе',
       'rahbar_badge_left': 'Ушёл',
@@ -1660,7 +1658,6 @@ class AppTranslations {
       'rahbar_data_not_found': 'No data found',
       'rahbar_no_staff_data_period': 'No staff attendance data for this period',
       'rahbar_on_leave_short': 'On leave',
-      'rahbar_main_office': 'Head Office',
       'rahbar_time_ago': '{time} ({min} min ago)',
       'rahbar_badge_at_work': 'At work',
       'rahbar_badge_left': 'Left',
@@ -2305,7 +2302,6 @@ class AppTranslations {
       'rahbar_no_staff_data_period':
           'Бул мезгил үчүн кызматкерлердин катышуу маалыматы жок',
       'rahbar_on_leave_short': 'Арыздуу',
-      'rahbar_main_office': 'Башкы офис',
       'rahbar_time_ago': '{time} ({min} мүн мурун)',
       'rahbar_badge_at_work': 'Жумушта',
       'rahbar_badge_left': 'Кетти',

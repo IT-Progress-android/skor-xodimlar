@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -105,6 +104,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
           // Build staff name -> branch ID mapping from Filial Report (getFilial)
           final rawFiliallar = (filialReport['filiallar'] as List?) ?? const [];
           final Map<String, int> staffNameToBranch = {};
+          Map<String, dynamic>? unassignedBranch;
 
           for (final f in rawFiliallar) {
             final fMap = Map<String, dynamic>.from(f as Map);
@@ -116,7 +116,27 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                 fNom.toLowerCase().contains('biriktirilmagan') ||
                 fNom.toLowerCase().contains('unassigned');
 
-            if (!isUnassigned) {
+            if (isUnassigned) {
+              if (fStaff.isNotEmpty) {
+                unassignedBranch = {
+                  'id': 0,
+                  'name': fNom.isNotEmpty ? fNom : 'Filial biriktirilmagan',
+                  'lat': 0.0,
+                  'lng': 0.0,
+                  'radius': 0.0,
+                };
+                for (final st in fStaff) {
+                  final stMap = Map<String, dynamic>.from(st as Map);
+                  final stName = (stMap['name'] ?? stMap['xodim'] ?? '')
+                      .toString()
+                      .trim()
+                      .toLowerCase();
+                  if (stName.isNotEmpty) {
+                    staffNameToBranch[stName] = 0;
+                  }
+                }
+              }
+            } else {
               int targetBranchId = parsedBranches.isNotEmpty
                   ? (parsedBranches.first['id'] as int)
                   : 1;
@@ -149,6 +169,9 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
             (a, b) =>
                 ((a['id'] as int?) ?? 0).compareTo((b['id'] as int?) ?? 0),
           );
+          if (unassignedBranch != null) {
+            parsedBranches.add(unassignedBranch);
+          }
           _branches = parsedBranches;
           if (_branches.isNotEmpty &&
               (_selectedFilialId == null ||
@@ -185,7 +208,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
     }
 
     // 1. Match by explicit filialId
-    if (s.filialId != null && s.filialId! > 0) {
+    if (s.filialId != null) {
       for (final b in _branches) {
         if ((b['id'] as num?)?.toInt() == s.filialId) {
           return s.filialId!;
@@ -207,31 +230,18 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
       }
     }
 
-    // 3. Match by staff GPS coordinates (inside geofence or closest)
-    if (s.lat != null && s.lng != null && s.lat != 0.0 && s.lng != 0.0) {
-      double minDistance = double.infinity;
-      int? closestBranchId;
-      for (final b in _branches) {
-        final bLat = (b['lat'] as num?)?.toDouble() ?? 0.0;
-        final bLng = (b['lng'] as num?)?.toDouble() ?? 0.0;
-        final bRadius = (b['radius'] as num?)?.toDouble() ?? 100.0;
-        if (bLat != 0.0 && bLng != 0.0) {
-          final d = Geolocator.distanceBetween(s.lat!, s.lng!, bLat, bLng);
-          if (d <= bRadius) {
-            return (b['id'] as num?)?.toInt() ?? 0;
-          }
-          if (d < minDistance) {
-            minDistance = d;
-            closestBranchId = (b['id'] as num?)?.toInt();
-          }
+    // 2.5. Match if filialName indicates unassigned
+    if (s.filialName != null) {
+      final fnLower = s.filialName!.toLowerCase();
+      if (fnLower.contains('biriktirilmagan') ||
+          fnLower.contains('unassigned')) {
+        for (final b in _branches) {
+          if ((b['id'] as num?)?.toInt() == 0) return 0;
         }
-      }
-      if (closestBranchId != null) {
-        return closestBranchId;
       }
     }
 
-    // 4. Match if branch name contains staff name (e.g. personal assigned zone)
+    // 3. Match if branch name contains staff name (e.g. personal assigned zone)
     if (staffNameLower.isNotEmpty) {
       for (final b in _branches) {
         final bName = (b['name'] ?? '').toString().trim().toLowerCase();
