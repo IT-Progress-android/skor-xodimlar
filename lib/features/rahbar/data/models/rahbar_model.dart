@@ -1,5 +1,7 @@
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/features/rahbar/domain/entities/rahbar_entity.dart';
+
 
 class RahbarUserModel extends RahbarUserEntity {
   const RahbarUserModel({
@@ -292,19 +294,20 @@ class RahbarStaffAttendanceModel extends RahbarStaffAttendanceEntity {
       lavozim: (json['lavozim'] ?? json['position'] ?? '').toString(),
       checkIn: rawCheckIn?.toString(),
       checkOut: rawCheckOut?.toString(),
-      status:
-          (json['status'] ??
-                  json['holat_nomi'] ??
-                  json['status_nomi'] ??
-                  json['holat'] ??
-                  AppLocalizations.trStatic('status_kelmagan'))
-              .toString(),
+      status: BackendTextMapper.translateStatus(
+        (json['status'] ??
+                json['holat_nomi'] ??
+                json['status_nomi'] ??
+                json['holat'] ??
+                AppLocalizations.trStatic('status_kelmagan'))
+            .toString(),
+      ),
       ishlaganDaqiqa: parseInt(
         json['ishlagan_daqiqa'] ??
             json['minutes_worked'] ??
             json['ishlagan_vaqt'],
       ),
-      delay: rawDelay?.toString(),
+      delay: BackendTextMapper.sanitizeDelay(rawDelay?.toString()),
       photo: formatPhotoUrl(rawPhoto),
       lat: parseDouble(json['lat'] ?? json['latitude'] ?? json['location_lat']),
       lng: parseDouble(

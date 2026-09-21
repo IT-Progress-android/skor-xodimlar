@@ -1,17 +1,6 @@
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/features/attendance/domain/entities/attendance_entity.dart';
-
-/// Backend kechikish yo'q degan ma'noni turli tillarda yuborganda
-/// (masalan "Yo'q", "Нет", "0") uni `null` ga aylantiradi.
-/// Shunda UI da "Опоздание: Yo'q" kabi aralash matn chiqmaydi.
-String? _sanitizeDelay(String? raw) {
-  if (raw == null) return null;
-  final t = raw.trim().toLowerCase();
-  if (t.isEmpty || t == '0' || t == "yo'q" || t == 'нет' || t == 'no') {
-    return null;
-  }
-  return raw.trim();
-}
 
 
 class CheckTimeModel extends CheckTimeEntity {
@@ -192,7 +181,9 @@ class TodayAttendanceModel extends TodayAttendanceEntity {
           .toString(),
       checkIn: timeFrom(today['check_in'], json['check_in']),
       checkOut: timeFrom(today['check_out'], json['check_out']),
-      delay: _sanitizeDelay((first['delay'] ?? json['delay'])?.toString()),
+      delay: BackendTextMapper.sanitizeDelay(
+        (first['delay'] ?? json['delay'])?.toString(),
+      ),
       eventsCount: (json['events_count'] as int?) ?? reports.length,
       next: (today['next'] ?? json['next'])?.toString(),
       inside: insideVal,
@@ -327,22 +318,25 @@ class AttendanceReportModel extends AttendanceReportEntity {
     }
 
     final dateStr = parseDate(json);
-    final weekdayStr = (json['weekday'] ?? json['hafta_kuni'] ?? json['kun'])
-        ?.toString();
+    final weekdayStr = BackendTextMapper.translateWeekday(
+      (json['weekday'] ?? json['hafta_kuni'] ?? json['kun'])?.toString(),
+    );
     final checkInStr = parseTime(
       json['check_in'] ?? json['checkIn'] ?? json['in'] ?? json['kelgan'],
     );
     final checkOutStr = parseTime(
       json['check_out'] ?? json['checkOut'] ?? json['out'] ?? json['ketgan'],
     );
-    final delayStr = _sanitizeDelay(
+    final delayStr = BackendTextMapper.sanitizeDelay(
       (json['delay'] ?? json['kechikish'])?.toString(),
     );
 
     final lateM = (json['late_minutes'] as num?)?.toInt();
     final workedM = (json['worked_minutes'] as num?)?.toInt();
     final spanM = (json['span_minutes'] as num?)?.toInt();
-    final statusStr =
+
+    // Backend status → ilovaning tiliga o'giramiz
+    final rawStatus =
         (json['status'] ??
                 json['status_nomi'] ??
                 json['holat'] ??
@@ -350,6 +344,8 @@ class AttendanceReportModel extends AttendanceReportEntity {
                     ? AppLocalizations.trStatic('status_kelgan')
                     : AppLocalizations.trStatic('status_kelmagan')))
             .toString();
+    final statusStr = BackendTextMapper.translateStatus(rawStatus);
+
 
     ArizaInfoModel? arizaModel;
     if (json['ariza'] is Map) {
