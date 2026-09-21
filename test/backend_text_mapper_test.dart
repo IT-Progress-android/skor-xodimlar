@@ -102,7 +102,12 @@ void main() {
       expect(DateFormatter.formatDelayToHours("Yo'q"), "Yo'q");
       expect(DateFormatter.formatDelayToHours('Yo‘q'), "Yo'q");
       expect(DateFormatter.formatDelayToHours('0'), "Yo'q");
+      expect(DateFormatter.formatDelayToHours('00:00'), "Yo'q");
+      expect(DateFormatter.formatDelayToHours('--'), "Yo'q");
       expect(DateFormatter.formatDelayToHours('95 min'), '1 soat 35 minut');
+      expect(DateFormatter.formatDelayToHours('01:30'), '1 soat 30 minut');
+      expect(DateFormatter.formatDelayToHours('00:15'), '15 minut');
+      expect(DateFormatter.formatDelayToHours('02:00'), '2 soat');
     });
 
     test('Russian delay', () {
@@ -110,7 +115,12 @@ void main() {
       expect(DateFormatter.formatDelayToHours("Yo'q"), 'Нет');
       expect(DateFormatter.formatDelayToHours('Yo‘q'), 'Нет');
       expect(DateFormatter.formatDelayToHours('0'), 'Нет');
+      expect(DateFormatter.formatDelayToHours('00:00'), 'Нет');
+      expect(DateFormatter.formatDelayToHours('--'), 'Нет');
       expect(DateFormatter.formatDelayToHours('95 min'), '1 ч 35 мин');
+      expect(DateFormatter.formatDelayToHours('01:30'), '1 ч 30 мин');
+      expect(DateFormatter.formatDelayToHours('00:15'), '15 мин');
+      expect(DateFormatter.formatDelayToHours('02:00'), '2 ч');
     });
 
     test('English delay', () {
@@ -118,7 +128,12 @@ void main() {
       expect(DateFormatter.formatDelayToHours("Yo'q"), 'No');
       expect(DateFormatter.formatDelayToHours('Yo‘q'), 'No');
       expect(DateFormatter.formatDelayToHours('0'), 'No');
+      expect(DateFormatter.formatDelayToHours('00:00'), 'No');
+      expect(DateFormatter.formatDelayToHours('--'), 'No');
       expect(DateFormatter.formatDelayToHours('95 min'), '1h 35m');
+      expect(DateFormatter.formatDelayToHours('01:30'), '1h 30m');
+      expect(DateFormatter.formatDelayToHours('00:15'), '15m');
+      expect(DateFormatter.formatDelayToHours('02:00'), '2h');
     });
 
     test('Kyrgyz delay', () {
@@ -126,7 +141,12 @@ void main() {
       expect(DateFormatter.formatDelayToHours("Yo'q"), 'Жок');
       expect(DateFormatter.formatDelayToHours('Yo‘q'), 'Жок');
       expect(DateFormatter.formatDelayToHours('0'), 'Жок');
+      expect(DateFormatter.formatDelayToHours('00:00'), 'Жок');
+      expect(DateFormatter.formatDelayToHours('--'), 'Жок');
       expect(DateFormatter.formatDelayToHours('95 min'), '1 саат 35 мүн');
+      expect(DateFormatter.formatDelayToHours('01:30'), '1 саат 30 мүн');
+      expect(DateFormatter.formatDelayToHours('00:15'), '15 мүн');
+      expect(DateFormatter.formatDelayToHours('02:00'), '2 саат');
     });
   });
 }

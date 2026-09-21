@@ -13,13 +13,43 @@ class DateFormatter {
     final text = rawDelay.trim();
     final clean = text.toLowerCase().replaceAll(RegExp(r"[‘’ʻʼ'`]"), "'");
 
-    // Kechikish yo'q holatlari: "yo'q", "нет", "no", "жок", "0"
+    // Kechikish yo'q holatlari: "yo'q", "нет", "no", "жок", "0", "00:00", "--", "0 daq"
     if (clean == "yo'q" ||
         clean == 'нет' ||
         clean == 'no' ||
         clean == 'жок' ||
-        clean == '0') {
+        clean == '0' ||
+        clean == '00:00' ||
+        clean == '--' ||
+        clean == '0 daq') {
       return AppLocalizations.trStatic('no');
+    }
+
+    // Agar "01:30" yoki "00:25" (HH:mm / HH:mm:ss) formatida bo'lsa
+    if (text.contains(':')) {
+      final parts = text.split(':');
+      if (parts.length >= 2) {
+        final h = int.tryParse(parts[0].replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+        final m = int.tryParse(parts[1].replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+        final totalM = h * 60 + m;
+        if (totalM <= 0) {
+          return AppLocalizations.trStatic('no');
+        }
+        if (h > 0 && m > 0) {
+          return AppLocalizations.trStatic('duration_hours_mins', {
+            'hours': '$h',
+            'mins': '$m',
+          });
+        } else if (h > 0 && m == 0) {
+          return AppLocalizations.trStatic('duration_hours', {
+            'hours': '$h',
+          });
+        } else {
+          return AppLocalizations.trStatic('duration_mins', {
+            'mins': '$m',
+          });
+        }
+      }
     }
 
     final digits = text.replaceAll(RegExp(r'[^\d]'), '');
