@@ -711,10 +711,10 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
       }
       for (final rf in _rawFiliallar) {
         final rNom = (rf['nom'] ?? rf['name'] ?? '').toString().toLowerCase();
-        final rId = rf['id'] ?? rf['filial_id'] ?? rf['location_id'];
+        final rId = _parseInt(rf['id'] ?? rf['filial_id'] ?? rf['location_id']);
         if (rId == b.id ||
             rNom == b.name.toLowerCase() ||
-            rNom.contains(b.name.toLowerCase())) {
+            (rNom.isNotEmpty && b.name.toLowerCase() == rNom)) {
           debugPrint('📦 [BACKEND RAW DATA]: $rf');
         }
       }

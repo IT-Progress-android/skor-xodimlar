@@ -86,8 +86,20 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
         setState(() {
           final List<Map<String, dynamic>> parsedBranches = [];
           for (final loc in locations) {
-            final id =
-                (loc['id'] as num?)?.toInt() ?? (parsedBranches.length + 1);
+            final rawNom = (loc['name'] ?? loc['nom'] ?? loc['title'] ?? '')
+                .toString()
+                .trim();
+            final isUn = rawNom.isEmpty ||
+                rawNom.toLowerCase().contains('biriktirilmagan') ||
+                rawNom.toLowerCase().contains('unassigned') ||
+                rawNom.toLowerCase() == 'null';
+
+            final id = isUn
+                ? 0
+                : (_parseInt(loc['id']) > 0
+                    ? _parseInt(loc['id'])
+                    : (parsedBranches.length + 1));
+
             parsedBranches.add({
               'id': id,
               'name': (loc['name'] ?? loc['nom'] ?? loc['title'] ?? 'Filial')
@@ -204,12 +216,39 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
             }
           }
 
+          // Agar rawFiliallar ichida biriktirilmagan xodimlar bo'lsa va parsedBranches da id==0 bo'lmasa, qo'shamiz
+          if (!parsedBranches.any((b) => (b['id'] as int) == 0)) {
+            final hasUnassignedStaff = rawFiliallar.any((f) {
+              final fMap = Map<String, dynamic>.from(f as Map);
+              final fNom = (fMap['nom'] ?? fMap['name'] ?? '').toString().trim().toLowerCase();
+              final isUn = fNom.isEmpty ||
+                  fNom.contains('biriktirilmagan') ||
+                  fNom.contains('unassigned') ||
+                  fNom == 'null';
+              final fStaff = (fMap['xodimlar'] as List?) ?? const [];
+              return isUn && fStaff.isNotEmpty;
+            });
+            if (hasUnassignedStaff) {
+              parsedBranches.add({
+                'id': 0,
+                'name': 'Filial biriktirilmagan',
+                'lat': 0.0,
+                'lng': 0.0,
+                'radius': 0.0,
+              });
+            }
+          }
+
           _staffNameToBranchId = staffNameToBranch;
           _staffIdToBranchId = staffIdToBranch;
-          parsedBranches.sort(
-            (a, b) =>
-                ((a['id'] as int?) ?? 0).compareTo((b['id'] as int?) ?? 0),
-          );
+          // Real filiallar (id > 0) oldinda, biriktirilmagan (id == 0) esa oxirida bo'lsin
+          parsedBranches.sort((a, b) {
+            final aId = (a['id'] as int?) ?? 0;
+            final bId = (b['id'] as int?) ?? 0;
+            if (aId == 0) return 1;
+            if (bId == 0) return -1;
+            return aId.compareTo(bId);
+          });
           _branches = parsedBranches;
           if (_branches.isNotEmpty &&
               (_selectedFilialId == null ||
@@ -328,9 +367,14 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
         .where((s) => _isStaffInBranch(s, id, _branches))
         .toList();
 
+    final bool isUnassigned = id == 0;
     debugPrint('════════════════════════════════════════════════════════════════');
     debugPrint('🏢 [KUNDALIK - FILIAL BOSILDI]: $name (ID: $id)');
-    debugPrint('📍 Koordinatalar: lat=${b['lat']}, lng=${b['lng']}, radius=${b['radius']}m');
+    if (!isUnassigned) {
+      debugPrint('📍 Koordinatalar: lat=${b['lat']}, lng=${b['lng']}, radius=${b['radius']}m');
+    } else {
+      debugPrint('📍 Filial biriktirilmagan xodimlar ro\'yxati');
+    }
     debugPrint('👥 Biriktirilgan xodimlar soni: ${staffInBranch.length} nafar');
     debugPrint('────────────────────────────────────────────────────────────────');
     for (int i = 0; i < staffInBranch.length; i++) {
@@ -343,10 +387,16 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
     }
     for (final f in _rawFiliallar) {
       final fNom = (f['nom'] ?? f['name'] ?? '').toString().toLowerCase();
-      final fId = f['id'] ?? f['filial_id'] ?? f['location_id'];
-      if (fId == id ||
-          fNom == name.toLowerCase() ||
-          fNom.contains(name.toLowerCase())) {
+      final fId = _parseInt(f['id'] ?? f['filial_id'] ?? f['location_id']);
+      final bool matches = (id == 0 &&
+              (fNom.contains('biriktirilmagan') ||
+                  fNom.contains('unassigned') ||
+                  fId == 0)) ||
+          (id > 0 &&
+              (fId == id ||
+                  fNom == name.toLowerCase() ||
+                  (fNom.isNotEmpty && name.toLowerCase() == fNom)));
+      if (matches) {
         debugPrint('📦 [BACKEND RAW DATA]: $f');
       }
     }
@@ -732,11 +782,14 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                                 )
                                 .length;
                             final bool isFirst = branchList.indexOf(b) == 0;
+                            final bool isUnassigned = id == 0;
+                            final String chipTitle =
+                                isUnassigned ? name : '📍 $name';
                             return Padding(
                               padding: EdgeInsets.only(left: isFirst ? 0 : 8),
                               child: _buildBranchFilterChip(
                                 id: id,
-                                title: '📍 $name',
+                                title: chipTitle,
                                 count: count,
                                 isSelected: activeBranchId == id,
                                 onTap: () {
