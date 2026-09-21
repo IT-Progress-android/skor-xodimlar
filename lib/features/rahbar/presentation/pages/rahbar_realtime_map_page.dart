@@ -80,7 +80,7 @@ class _StaffMapItem {
 
 class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
   YandexMapController? _controller;
-  final List<MapObject<dynamic>> _mapObjects = [];
+  List<MapObject<dynamic>> _mapObjects = const [];
   final Map<int, Uint8List> _markerBytesCache = {};
   final Map<int, int> _markerColorCache = {};
   Uint8List? _officeMarkerBytes;
@@ -188,6 +188,12 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
       final List<Map<String, dynamic>> liveLocations =
           results[3] as List<Map<String, dynamic>>;
 
+      // Build staff name and ID -> branch ID mapping from Filial Report (getFilial)
+      final rawFiliallar = (filialReport['filiallar'] as List?) ?? const [];
+      _rawFiliallar = rawFiliallar
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+
       final List<_BranchLocation> parsedBranches = [];
 
       for (final loc in rawLocations) {
@@ -200,7 +206,27 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
         final name =
             (loc['name'] ?? loc['nom'] ?? context.tr('rahbar_branch_fallback'))
                 .toString();
-        final id = _parseInt(loc['id']);
+        int id = _parseInt(loc['id'] ?? loc['filial_id'] ?? loc['location_id']);
+
+        if (id == 0) {
+          final nomLower = name.trim().toLowerCase();
+          for (final f in _rawFiliallar) {
+            final fNom =
+                (f['nom'] ?? f['name'] ?? '').toString().trim().toLowerCase();
+            if (fNom == nomLower ||
+                fNom.contains(nomLower) ||
+                nomLower.contains(fNom)) {
+              final foundId = _parseInt(f['id'] ?? f['filial_id']);
+              if (foundId > 0) {
+                id = foundId;
+                break;
+              }
+            }
+          }
+        }
+        if (id == 0) {
+          id = parsedBranches.length + 1;
+        }
 
         if (lat != 0.0 && lng != 0.0) {
           parsedBranches.add(
@@ -215,15 +241,36 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
         }
       }
 
-      // Build staff name and ID -> branch ID mapping from Filial Report (getFilial)
-      final rawFiliallar = (filialReport['filiallar'] as List?) ?? const [];
-      _rawFiliallar = rawFiliallar
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList();
+      if (parsedBranches.isEmpty) {
+        for (final f in _rawFiliallar) {
+          final lat = _parseDouble(f['lat'] ?? f['latitude']);
+          final lng = _parseDouble(f['lng'] ?? f['longitude']);
+          final radius = _parseDouble(f['radius'] ?? f['radius_meter'], 100.0);
+          final nom = (f['nom'] ?? f['name'] ?? '').toString().trim();
+          final id = _parseInt(f['id'] ?? f['filial_id']);
+          final isUn = nom.isEmpty ||
+              nom.toLowerCase().contains('biriktirilmagan') ||
+              nom.toLowerCase().contains('unassigned');
+          if (!isUn && lat != 0.0 && lng != 0.0) {
+            parsedBranches.add(
+              _BranchLocation(
+                id: id,
+                name: nom,
+                lat: lat,
+                lng: lng,
+                radius: radius.clamp(20.0, 1000.0),
+              ),
+            );
+          }
+        }
+      }
+
+      parsedBranches.sort((a, b) => a.id.compareTo(b.id));
+
       final Map<String, int> staffNameToBranch = {};
       final Map<int, int> staffIdToBranch = {};
 
-      for (final f in rawFiliallar) {
+      for (final f in _rawFiliallar) {
         final fMap = Map<String, dynamic>.from(f as Map);
         final fNom = (fMap['nom'] ?? fMap['name'] ?? '').toString().trim();
         final fId = _parseInt(
@@ -669,6 +716,9 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
   }
 
   bool _isStaffInCurrentBranch(_StaffMapItem s, _BranchLocation branch) {
+    if (s.filialId != null && s.filialId! > 0 && branch.id > 0) {
+      return s.filialId == branch.id;
+    }
     final staffBranchId = _getStaffBranchId(
       filialId: s.filialId,
       filialName: s.filialName,
@@ -1011,39 +1061,42 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
   }
 
   void _buildMapObjects() {
-    _mapObjects.clear();
+    final List<MapObject<dynamic>> newObjects = [];
 
-    // 1. Draw all configured branches (circles & clean center dots)
-    for (int i = 0; i < _branches.length; i++) {
-      final branch = _branches[i];
-      if (branch.lat == 0.0 || branch.lng == 0.0) continue;
-      final bool isCurrent = i == _selectedBranchIndex;
+    final currentBranch = (_branches.isNotEmpty &&
+            _selectedBranchIndex >= 0 &&
+            _selectedBranchIndex < _branches.length)
+        ? _branches[_selectedBranchIndex]
+        : (_branches.isNotEmpty ? _branches.first : null);
 
-      // Circle geofence zone
-      _mapObjects.add(
+    // 1. Draw ONLY the selected branch geofence zone & center dot!
+    if (currentBranch != null &&
+        currentBranch.lat != 0.0 &&
+        currentBranch.lng != 0.0) {
+      newObjects.add(
         CircleMapObject(
-          mapId: MapObjectId('branch_zone_${branch.id}'),
+          mapId: MapObjectId('branch_zone_${currentBranch.id}'),
           circle: Circle(
-            center: Point(latitude: branch.lat, longitude: branch.lng),
-            radius: branch.radius,
+            center: Point(
+              latitude: currentBranch.lat,
+              longitude: currentBranch.lng,
+            ),
+            radius: currentBranch.radius,
           ),
-          strokeColor: isCurrent
-              ? const Color(0xFF0D6E6E)
-              : Colors.grey.shade600,
-          strokeWidth: isCurrent ? 2.5 : 1.5,
-          fillColor: (isCurrent ? const Color(0xFF0D6E6E) : Colors.grey)
-              .withValues(alpha: isCurrent ? 0.18 : 0.08),
-          zIndex: isCurrent ? 2.0 : 1.0,
-          consumeTapEvents: true,
-          onTap: (object, point) => _onBranchSelected(i),
+          strokeColor: const Color(0xFF0D6E6E),
+          strokeWidth: 2.5,
+          fillColor: const Color(0xFF0D6E6E).withValues(alpha: 0.18),
+          zIndex: 2.0,
         ),
       );
 
-      // Clean Minimalist Center Dot Marker (Oddiy nuqta)
-      _mapObjects.add(
+      newObjects.add(
         PlacemarkMapObject(
-          mapId: MapObjectId('branch_dot_${branch.id}'),
-          point: Point(latitude: branch.lat, longitude: branch.lng),
+          mapId: MapObjectId('branch_dot_${currentBranch.id}'),
+          point: Point(
+            latitude: currentBranch.lat,
+            longitude: currentBranch.lng,
+          ),
           icon: PlacemarkIcon.single(
             PlacemarkIconStyle(
               image: _officeMarkerBytes != null
@@ -1051,25 +1104,22 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
                   : BitmapDescriptor.fromAssetImage(
                       'assets/images/work_marker.png',
                     ),
-              scale: isCurrent ? 0.9 : 0.75,
+              scale: 0.9,
             ),
           ),
           opacity: 1.0,
-          zIndex: isCurrent ? 6.0 : 5.0,
-          consumeTapEvents: true,
-          onTap: (object, point) => _onBranchSelected(i),
+          zIndex: 6.0,
         ),
       );
     }
 
-    // 2. Real Staff Markers with Photo Pins
-    // Xodim 'hududda' yoki 'tashqarida' bo'lishidan qat'i nazar — REAL GPS koordinatasi bo'lsa ALBATTA xaritada ko'rsatiladi!
+    // 2. Real Staff Markers: ONLY staff belonging to the selected branch!
     for (final staff in _filteredStaff) {
       if (staff.lat == 0.0 || staff.lng == 0.0) continue;
       final staffPoint = Point(latitude: staff.lat, longitude: staff.lng);
       final bytes = _markerBytesCache[staff.id];
 
-      _mapObjects.add(
+      newObjects.add(
         PlacemarkMapObject(
           mapId: MapObjectId('staff_${staff.id}'),
           point: staffPoint,
@@ -1092,18 +1142,14 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
     }
 
     // 3. In-App Polyline route between branch and staff if active
-    if (_activeRouteTarget != null && _branches.isNotEmpty) {
-      final currentBranch =
-          (_selectedBranchIndex >= 0 && _selectedBranchIndex < _branches.length)
-          ? _branches[_selectedBranchIndex]
-          : _branches.first;
+    if (_activeRouteTarget != null && currentBranch != null) {
       if (currentBranch.lat != 0.0 && currentBranch.lng != 0.0) {
         final start = Point(
           latitude: currentBranch.lat,
           longitude: currentBranch.lng,
         );
 
-        _mapObjects.add(
+        newObjects.add(
           PolylineMapObject(
             mapId: const MapObjectId('in_app_staff_route'),
             polyline: Polyline(points: [start, _activeRouteTarget!]),
@@ -1116,6 +1162,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
       }
     }
 
+    _mapObjects = List<MapObject<dynamic>>.unmodifiable(newObjects);
     if (mounted) setState(() {});
   }
 
