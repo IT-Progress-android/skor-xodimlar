@@ -13,6 +13,7 @@ import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/services/app_update_service.dart';
 import 'package:skore_hodimlar/core/services/fcm_service.dart';
 import 'package:skore_hodimlar/core/services/gps_live_tracker_service.dart';
+import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/core/utils/date_formatter.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_ring.dart';
 import 'package:skore_hodimlar/core/widgets/location_disclosure_dialog.dart';
@@ -386,7 +387,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                 ),
-                if (data.delay != null && data.delay!.isNotEmpty) ...[
+                if (BackendTextMapper.isLate(data.delay)) ...[
                   const SizedBox(height: 14),
                   Container(
                     padding: const EdgeInsets.symmetric(

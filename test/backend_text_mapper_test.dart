@@ -15,6 +15,7 @@ void main() {
       expect(BackendTextMapper.translateArizaStatus('kutilmoqda'), 'Kutilmoqda');
       expect(BackendTextMapper.translateArizaStatus('tasdiqlangan'), 'Tasdiqlangan');
       expect(BackendTextMapper.translateArizaStatus('rad etilgan'), 'Rad etilgan');
+      expect(BackendTextMapper.translateStatus('kechikkan'), 'Kechikkan');
     });
 
     test('Russian status', () {
@@ -22,6 +23,7 @@ void main() {
       expect(BackendTextMapper.translateArizaStatus('kutilmoqda'), 'Ожидается');
       expect(BackendTextMapper.translateArizaStatus('tasdiqlangan'), 'Одобрено');
       expect(BackendTextMapper.translateArizaStatus('rad etilgan'), 'Отклонено');
+      expect(BackendTextMapper.translateStatus('kechikkan'), 'Опоздал');
     });
 
     test('English status', () {
@@ -29,6 +31,7 @@ void main() {
       expect(BackendTextMapper.translateArizaStatus('kutilmoqda'), 'Pending');
       expect(BackendTextMapper.translateArizaStatus('tasdiqlangan'), 'Approved');
       expect(BackendTextMapper.translateArizaStatus('rad etilgan'), 'Rejected');
+      expect(BackendTextMapper.translateStatus('kechikkan'), 'Late');
     });
 
     test('Kyrgyz status', () {
@@ -36,6 +39,24 @@ void main() {
       expect(BackendTextMapper.translateArizaStatus('kutilmoqda'), 'Күтүлүүдө');
       expect(BackendTextMapper.translateArizaStatus('tasdiqlangan'), 'Тастыкталды');
       expect(BackendTextMapper.translateArizaStatus('rad etilgan'), 'Четке кагылды');
+      expect(BackendTextMapper.translateStatus('kechikkan'), 'Кечиккен');
+    });
+  });
+
+  group('BackendTextMapper - isLate helper', () {
+    test('Identifies non-late and late delays correctly', () {
+      expect(BackendTextMapper.isLate(null), false);
+      expect(BackendTextMapper.isLate(''), false);
+      expect(BackendTextMapper.isLate("Yo'q"), false);
+      expect(BackendTextMapper.isLate('Yo‘q'), false);
+      expect(BackendTextMapper.isLate('0'), false);
+      expect(BackendTextMapper.isLate('00:00'), false);
+      expect(BackendTextMapper.isLate('--'), false);
+      expect(BackendTextMapper.isLate('Нет'), false);
+
+      expect(BackendTextMapper.isLate('15 min'), true);
+      expect(BackendTextMapper.isLate('00:25'), true);
+      expect(BackendTextMapper.isLate('1 soat 10 min'), true);
     });
   });
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/core/utils/date_formatter.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
 import 'package:skore_hodimlar/features/attendance/domain/entities/attendance_entity.dart';
@@ -22,11 +23,13 @@ class _AttendanceCardState extends State<AttendanceCard> {
     final report = widget.report;
 
     // status allaqachon BackendTextMapper orqali ilovaning tiliga o'girilgan.
-    // attendance_present kaliti hozirgi tildagi qiymati bilan solishtiramiz.
     final presentText = AppLocalizations.trStatic('attendance_present');
+    final lateText = AppLocalizations.trStatic('status_kechikkan');
     final bool isPresent =
-        report.checkIn != null || report.status == presentText;
-    final bool isLate = report.delay != null && report.delay!.isNotEmpty;
+        report.checkIn != null ||
+        report.status == presentText ||
+        report.status == lateText;
+    final bool isLate = BackendTextMapper.isLate(report.delay);
 
     final bool hasAriza = report.ariza != null;
 

@@ -37,10 +37,40 @@ class BackendTextMapper {
       case 'не пришла':
         return AppLocalizations.trStatic('attendance_absent');
 
+      // "kechikkan / late / опоздал"
+      case 'kechikkan':
+      case 'kechikdi':
+      case 'late':
+      case 'опоздал':
+      case 'опоздала':
+      case 'опоздали':
+      case 'кечиккен':
+        return AppLocalizations.trStatic('status_kechikkan');
+
       default:
         // Noma'lum so'z — o'zgartirmasdan qaytaramiz
         return raw;
     }
+  }
+
+  /// Xodim kechikkanmi yoki yo'qligini aniqlaydi.
+  /// "Yo'q", "Нет", "No", "Жок", "0", "00:00", "--", null bo'lsa -> false.
+  /// Musbat vaqt yoki kechikish daqiqasi bo'lsa -> true.
+  static bool isLate(String? rawDelay) {
+    if (rawDelay == null) return false;
+    final t = rawDelay.trim().toLowerCase().replaceAll(RegExp(r"[‘’ʻʼ'`]"), "'");
+    if (t.isEmpty ||
+        t == '0' ||
+        t == '00:00' ||
+        t == '--' ||
+        t == "yo'q" ||
+        t == 'нет' ||
+        t == 'no' ||
+        t == 'жок' ||
+        t == '0 daq') {
+      return false;
+    }
+    return true;
   }
 
   // ─────────────────────────────────────────────
