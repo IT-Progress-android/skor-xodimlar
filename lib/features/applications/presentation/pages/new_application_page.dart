@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/features/applications/domain/entities/ariza_entity.dart';
 import 'package:skore_hodimlar/features/applications/presentation/bloc/ariza_bloc.dart';
 
@@ -206,7 +207,7 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                         (e) => DropdownMenuItem(
                           value: e,
                           child: Text(
-                            e.nomi,
+                            BackendTextMapper.translateArizaTuriNomi(e.nomi),
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),

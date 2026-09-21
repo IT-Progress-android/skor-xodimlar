@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/core/services/fcm_service.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
 import 'package:skore_hodimlar/core/widgets/language_picker_bottom_sheet.dart';
@@ -815,9 +816,10 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                             ar['xodim']?.toString() ??
                             ar['xodim_name']?.toString() ??
                             context.tr('rahbar_staff_fallback');
-                        final turi =
-                            ar['turi_nomi']?.toString() ??
-                            context.tr('rahbar_ariza_fallback');
+                        final turi = BackendTextMapper.translateArizaTuriNomi(
+                          ar['turi_nomi']?.toString() ??
+                              context.tr('rahbar_ariza_fallback'),
+                        );
                         final kunlar = (ar['kunlar'] as num?)?.toInt() ?? 1;
                         final dateStr = ar['from_date']?.toString() ?? '';
                         final photoUrl = ar['photo']?.toString();

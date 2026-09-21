@@ -88,19 +88,86 @@ class BackendTextMapper {
   }
 
   // ─────────────────────────────────────────────
-  // DELAY: "Yo'q", "Нет", "0" → null yoki formatlangan vaqt
+  // DELAY: "Yo'q", "Нет", "0" → tiliga mos "Yo'q"/"Нет"/"No"/"Жок"
   // ─────────────────────────────────────────────
 
-  /// Backend kechikish qiymatini tozalaydi.
-  /// "Yo'q", "Нет", "0", "" → null qaytaradi (badge ko'rsatilmaydi).
-  /// Boshqa qiymatlar o'z holicha qaytaradi (vaqt formatida: "00:05").
+  /// Backend kechikish qiymatini tozalaydi va lokalize qiladi.
+  ///
+  /// - "Yo'q" / "Нет" / "0" / "" → `tr('no')` (hozirgi tilda "yo'q" ma'nosi)
+  /// - "00:05" kabi vaqt → o'z holicha qaytaradi
+  /// - null → null
   static String? sanitizeDelay(String? raw) {
     if (raw == null) return null;
-    final t = raw.trim().toLowerCase();
-    if (t.isEmpty || t == '0' || t == "yo'q" || t == 'нет' || t == 'no') {
-      return null;
+    final t = raw.trim().toLowerCase().replaceAll(RegExp(r"[‘’ʻʼ'`]"), "'");
+    if (t.isEmpty) return null;
+    if (t == '0' || t == "yo'q" || t == 'нет' || t == 'no' || t == 'жок') {
+      // Kechikish yo'q — hozirgi tildagi "Yo'q"/"Нет"/"No"/"Жок" ni qaytaramiz
+      return AppLocalizations.trStatic('no');
     }
     return raw.trim();
+  }
+
+  // ─────────────────────────────────────────────
+  // ARIZA TURI NOMI: "Javob so'rash", "Ta'til" → 4 tilda
+  // ─────────────────────────────────────────────
+
+  /// Backend ariza turining o'zbekcha nomini ilovaning tiliga o'giradi.
+  /// Apostroflar (', ‘, ’, ʻ, ʼ) avtomatik normallashtiriladi.
+  /// Noma'lum tur kelsa — o'zgartirmasdan qaytaradi.
+  static String translateArizaTuriNomi(String raw) {
+    final clean = raw.trim().toLowerCase().replaceAll(RegExp(r"[‘’ʻʼ'`]"), "'");
+    switch (clean) {
+      // ── Javob so'rash ───────────────────────────
+      case "javob so'rash":
+      case "javob sorash":
+      case "отпроситься":
+      case "отгул":
+      case "permission":
+      case "short leave":
+      case "сурануу":
+        return AppLocalizations.trStatic('ariza_type_javob_sorash');
+
+      // ── Ta'til ──────────────────────────────────
+      case "ta'til":
+      case "tatil":
+      case "отпуск":
+      case "vacation":
+      case "annual leave":
+      case "эмгек өргүү":
+        return AppLocalizations.trStatic('ariza_type_tatil');
+
+      // ── Kasallik ────────────────────────────────
+      case "kasallik":
+      case "больничный":
+      case "sick leave":
+      case "оору өргүүсү":
+        return AppLocalizations.trStatic('ariza_type_kasallik');
+
+      // ── Xizmat safari ───────────────────────────
+      case "xizmat safari":
+      case "командировка":
+      case "business trip":
+      case "иш сапары":
+        return AppLocalizations.trStatic('ariza_type_xizmat_safari');
+
+      // ── Sababsiz ────────────────────────────────
+      case "sababsiz":
+      case "без причины":
+      case "unexcused":
+      case "no reason":
+      case "себепсиз":
+        return AppLocalizations.trStatic('ariza_type_sababsiz');
+
+      // ── Boshqa ──────────────────────────────────
+      case "boshqa":
+      case "другое":
+      case "other":
+      case "башка":
+        return AppLocalizations.trStatic('ariza_type_boshqa');
+
+      default:
+        return raw;
+    }
   }
 
   // ─────────────────────────────────────────────

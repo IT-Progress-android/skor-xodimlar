@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
 import 'package:skore_hodimlar/features/applications/domain/entities/ariza_entity.dart';
+
 
 class ArizaCard extends StatelessWidget {
   final ArizaEntity ariza;
@@ -68,7 +70,7 @@ class ArizaCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    ariza.turiNomi,
+                    BackendTextMapper.translateArizaTuriNomi(ariza.turiNomi),
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -86,7 +88,7 @@ class ArizaCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    ariza.statusNomi,
+                    BackendTextMapper.translateArizaStatus(ariza.statusNomi),
                     style: TextStyle(
                       color: statusColor,
                       fontSize: 12,

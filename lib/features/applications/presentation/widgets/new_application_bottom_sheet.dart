@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/features/applications/domain/entities/ariza_entity.dart';
 import 'package:skore_hodimlar/features/applications/domain/usecases/get_ariza_types_usecase.dart';
 import 'package:skore_hodimlar/features/applications/domain/usecases/submit_ariza_usecase.dart';
@@ -331,9 +332,11 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                         items: _turlari.map((item) {
                           return DropdownMenuItem<ArizaTuriEntity>(
                             value: item,
-                            child: Text(
-                              item.nomi,
-                              style: GoogleFonts.outfit(
+                              child: Text(
+                                BackendTextMapper.translateArizaTuriNomi(
+                                  item.nomi,
+                                ),
+                                style: GoogleFonts.outfit(
                                 color: const Color(0xFF1A1A1A),
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14.5,

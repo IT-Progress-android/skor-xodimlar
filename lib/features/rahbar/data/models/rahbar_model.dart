@@ -390,8 +390,10 @@ class RahbarArizaModel extends RahbarArizaEntity {
                   ? (xodim['name'] ?? xodim['full_name'])
                   : (json['xodim_name'] ?? json['name'] ?? ''))
               .toString(),
-      turiNomi: (json['turi_nomi'] ?? json['turi'] ?? json['type_name'] ?? '')
-          .toString(),
+      turiNomi: BackendTextMapper.translateArizaTuriNomi(
+        (json['turi_nomi'] ?? json['turi'] ?? json['type_name'] ?? '')
+            .toString(),
+      ),
       fromDate:
           (json['from_date'] ?? json['fromDate'] ?? json['start_date'] ?? '')
               .toString(),

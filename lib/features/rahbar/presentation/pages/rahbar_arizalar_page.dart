@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
 import 'package:skore_hodimlar/features/rahbar/domain/entities/rahbar_entity.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/bloc/rahbar_bloc.dart';
@@ -270,7 +271,9 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  item.statusNomi,
+                                  BackendTextMapper.translateArizaStatus(
+                                    item.statusNomi,
+                                  ),
                                   style: GoogleFonts.outfit(
                                     color: badgeColor,
                                     fontSize: 12,
@@ -283,7 +286,9 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
                           const SizedBox(height: 6),
                           Text(
                             context.tr('rahbar_ariza_type_days', {
-                              'turi': item.turiNomi,
+                              'turi': BackendTextMapper.translateArizaTuriNomi(
+                                item.turiNomi,
+                              ),
                               'days': '${item.kunlar}',
                             }),
                             style: GoogleFonts.outfit(

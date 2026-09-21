@@ -1,25 +1,54 @@
+import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+
 class DateFormatter {
-  /// Serverdan keladigan kechikish qiymatini ("95", "95 min") o'zbekcha
-  /// "1 soat 35 minut" ko'rinishiga o'giradi.
+  /// Serverdan keladigan kechikish qiymatini ("95", "95 min", "Yo'q", "0")
+  /// ilovaning hozirgi tiliga mos ko'rinishiga o'giradi.
+  ///
+  /// Masalan:
+  /// - "Yo'q" / "0" -> "Yo'q" (UZ) / "Нет" (RU) / "No" (EN) / "Жок" (KY)
+  /// - "95" -> "1 soat 35 minut" (UZ) / "1 ч 35 мин" (RU) / "1h 35m" (EN) / "1 саат 35 мүн" (KY)
   static String formatDelayToHours(String? rawDelay) {
     if (rawDelay == null || rawDelay.trim().isEmpty) return '';
 
     final text = rawDelay.trim();
+    final clean = text.toLowerCase().replaceAll(RegExp(r"[‘’ʻʼ'`]"), "'");
+
+    // Kechikish yo'q holatlari: "yo'q", "нет", "no", "жок", "0"
+    if (clean == "yo'q" ||
+        clean == 'нет' ||
+        clean == 'no' ||
+        clean == 'жок' ||
+        clean == '0') {
+      return AppLocalizations.trStatic('no');
+    }
+
     final digits = text.replaceAll(RegExp(r'[^\d]'), '');
-    if (digits.isEmpty) return text;
+    if (digits.isEmpty) {
+      return text;
+    }
 
     final totalMinutes = int.tryParse(digits);
-    if (totalMinutes == null || totalMinutes <= 0) return text;
+    if (totalMinutes == null || totalMinutes <= 0) {
+      return AppLocalizations.trStatic('no');
+    }
 
     final hours = totalMinutes ~/ 60;
     final minutes = totalMinutes % 60;
 
     if (hours > 0 && minutes > 0) {
-      return '$hours soat $minutes minut';
+      return AppLocalizations.trStatic('duration_hours_mins', {
+        'hours': '$hours',
+        'mins': '$minutes',
+      });
     } else if (hours > 0 && minutes == 0) {
-      return '$hours soat';
+      return AppLocalizations.trStatic('duration_hours', {
+        'hours': '$hours',
+      });
     } else {
-      return '$minutes minut';
+      return AppLocalizations.trStatic('duration_mins', {
+        'mins': '$minutes',
+      });
     }
   }
 }
+

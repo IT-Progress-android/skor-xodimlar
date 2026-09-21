@@ -207,7 +207,9 @@ class ArizaInfoModel extends ArizaInfoEntity {
     return ArizaInfoModel(
       id: (json['id'] as num?)?.toInt() ?? 0,
       turi: (json['turi'] ?? '').toString(),
-      nomi: (json['nomi'] ?? json['turi_nomi'] ?? '').toString(),
+      nomi: BackendTextMapper.translateArizaTuriNomi(
+        (json['nomi'] ?? json['turi_nomi'] ?? '').toString(),
+      ),
       izoh: json['izoh']?.toString(),
     );
   }

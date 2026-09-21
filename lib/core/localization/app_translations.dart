@@ -575,6 +575,15 @@ class AppTranslations {
       'status_kutilmoqda': 'Kutilmoqda',
       'status_tasdiqlangan': 'Tasdiqlangan',
       'status_rad_etilgan': 'Rad etilgan',
+      'ariza_type_javob_sorash': 'Javob so\'rash',
+      'ariza_type_tatil': 'Ta\'til',
+      'ariza_type_kasallik': 'Kasallik',
+      'ariza_type_xizmat_safari': 'Xizmat safari',
+      'ariza_type_sababsiz': 'Sababsiz',
+      'ariza_type_boshqa': 'Boshqa',
+      'duration_hours_mins': '{hours} soat {mins} minut',
+      'duration_hours': '{hours} soat',
+      'duration_mins': '{mins} minut',
       'notif_default_title': 'Bildirishnoma',
 
       // Profile
@@ -1217,6 +1226,15 @@ class AppTranslations {
       'status_kutilmoqda': 'Ожидается',
       'status_tasdiqlangan': 'Одобрено',
       'status_rad_etilgan': 'Отклонено',
+      'ariza_type_javob_sorash': 'Отпроситься',
+      'ariza_type_tatil': 'Отпуск',
+      'ariza_type_kasallik': 'Больничный',
+      'ariza_type_xizmat_safari': 'Командировка',
+      'ariza_type_sababsiz': 'Без причины',
+      'ariza_type_boshqa': 'Другое',
+      'duration_hours_mins': '{hours} ч {mins} мин',
+      'duration_hours': '{hours} ч',
+      'duration_mins': '{mins} мин',
       'notif_default_title': 'Уведомление',
 
       // Profile
@@ -1844,6 +1862,15 @@ class AppTranslations {
       'status_kutilmoqda': 'Pending',
       'status_tasdiqlangan': 'Approved',
       'status_rad_etilgan': 'Rejected',
+      'ariza_type_javob_sorash': 'Permission / Leave',
+      'ariza_type_tatil': 'Vacation',
+      'ariza_type_kasallik': 'Sick leave',
+      'ariza_type_xizmat_safari': 'Business trip',
+      'ariza_type_sababsiz': 'Unexcused',
+      'ariza_type_boshqa': 'Other',
+      'duration_hours_mins': '{hours}h {mins}m',
+      'duration_hours': '{hours}h',
+      'duration_mins': '{mins}m',
       'notif_default_title': 'Notification',
 
       // Profile
@@ -2482,6 +2509,15 @@ class AppTranslations {
       'status_kutilmoqda': 'Күтүлүүдө',
       'status_tasdiqlangan': 'Тастыкталды',
       'status_rad_etilgan': 'Четке кагылды',
+      'ariza_type_javob_sorash': 'Сурануу',
+      'ariza_type_tatil': 'Эмгек өргүү',
+      'ariza_type_kasallik': 'Оору өргүүсү',
+      'ariza_type_xizmat_safari': 'Иш сапары',
+      'ariza_type_sababsiz': 'Себепсиз',
+      'ariza_type_boshqa': 'Башка',
+      'duration_hours_mins': '{hours} саат {mins} мүн',
+      'duration_hours': '{hours} саат',
+      'duration_mins': '{mins} мүн',
       'notif_default_title': 'Билдирүү',
 
       // Profile
