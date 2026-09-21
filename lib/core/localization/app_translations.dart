@@ -264,6 +264,8 @@ class AppTranslations {
       'rahbar_no_data_in_range': 'Bu oraliqda ma\'lumot yo\'q',
       'rahbar_kunlik_summary':
           'Kelgan: {present}/{total}  ·  Kechikkan: {late}  ·  Arizali: {ariza}',
+      'rahbar_kunlik_legend':
+          'Rang: 🟢 80% va undan yuqori   🟠 50–79%   🔴 50% dan past',
       'rahbar_terminal_not_connected': 'Terminal hali ulanmagan',
       'rahbar_no_data_this_date': 'Bu sanada ma\'lumot yo\'q',
       'rahbar_no_attendance_data_generic':
@@ -921,6 +923,8 @@ class AppTranslations {
       'rahbar_no_data_in_range': 'За этот период нет данных',
       'rahbar_kunlik_summary':
           'Пришли: {present}/{total}  ·  Опоздали: {late}  ·  По заявке: {ariza}',
+      'rahbar_kunlik_legend':
+          'Цвет: 🟢 80% и выше   🟠 50–79%   🔴 ниже 50%',
       'rahbar_terminal_not_connected': 'Терминал ещё не подключён',
       'rahbar_no_data_this_date': 'На эту дату нет данных',
       'rahbar_no_attendance_data_generic':
@@ -1572,6 +1576,8 @@ class AppTranslations {
       'rahbar_no_data_in_range': 'No data in this range',
       'rahbar_kunlik_summary':
           'Present: {present}/{total}  ·  Late: {late}  ·  On leave: {ariza}',
+      'rahbar_kunlik_legend':
+          'Color: 🟢 80% and above   🟠 50–79%   🔴 below 50%',
       'rahbar_terminal_not_connected': 'Terminal not yet connected',
       'rahbar_no_data_this_date': 'No data for this date',
       'rahbar_no_attendance_data_generic':
@@ -2210,6 +2216,8 @@ class AppTranslations {
       'rahbar_no_data_in_range': 'Бул мезгилде маалымат жок',
       'rahbar_kunlik_summary':
           'Келгендер: {present}/{total}  ·  Кечиккендер: {late}  ·  Арыздуу: {ariza}',
+      'rahbar_kunlik_legend':
+          'Түс: 🟢 80% жана андан жогору   🟠 50–79%   🔴 50%дан төмөн',
       'rahbar_terminal_not_connected': 'Терминал азырынча туташкан эмес',
       'rahbar_no_data_this_date': 'Бул күнгө маалымат жок',
       'rahbar_no_attendance_data_generic':
