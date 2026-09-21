@@ -573,6 +573,8 @@ class AppTranslations {
       'status_kelgan': 'Kelgan',
       'status_kelmagan': 'Kelmagan',
       'status_kutilmoqda': 'Kutilmoqda',
+      'status_tasdiqlangan': 'Tasdiqlangan',
+      'status_rad_etilgan': 'Rad etilgan',
       'notif_default_title': 'Bildirishnoma',
 
       // Profile
@@ -1213,6 +1215,8 @@ class AppTranslations {
       'status_kelgan': 'Пришёл',
       'status_kelmagan': 'Не пришёл',
       'status_kutilmoqda': 'Ожидается',
+      'status_tasdiqlangan': 'Одобрено',
+      'status_rad_etilgan': 'Отклонено',
       'notif_default_title': 'Уведомление',
 
       // Profile
@@ -1838,6 +1842,8 @@ class AppTranslations {
       'status_kelgan': 'Present',
       'status_kelmagan': 'Absent',
       'status_kutilmoqda': 'Pending',
+      'status_tasdiqlangan': 'Approved',
+      'status_rad_etilgan': 'Rejected',
       'notif_default_title': 'Notification',
 
       // Profile
@@ -2474,6 +2480,8 @@ class AppTranslations {
       'status_kelgan': 'Келди',
       'status_kelmagan': 'Келген жок',
       'status_kutilmoqda': 'Күтүлүүдө',
+      'status_tasdiqlangan': 'Тастыкталды',
+      'status_rad_etilgan': 'Четке кагылды',
       'notif_default_title': 'Билдирүү',
 
       // Profile

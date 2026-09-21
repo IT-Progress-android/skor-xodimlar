@@ -1,4 +1,5 @@
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/features/applications/domain/entities/ariza_entity.dart';
 
 class ArizaTuriModel extends ArizaTuriEntity {
@@ -57,10 +58,11 @@ class ArizaModel extends ArizaEntity {
       kunlar: (json['kunlar'] as num?)?.toInt() ?? 1,
       izoh: json['izoh']?.toString(),
       status: json['status']?.toString() ?? 'kutilmoqda',
-      statusNomi:
-          json['status_nomi']?.toString() ??
-          (json['status']?.toString() ??
-              AppLocalizations.trStatic('status_kutilmoqda')),
+      statusNomi: BackendTextMapper.translateArizaStatus(
+        json['status_nomi']?.toString() ??
+        json['status']?.toString() ??
+        AppLocalizations.trStatic('status_kutilmoqda'),
+      ),
       reviewIzoh: json['review_izoh']?.toString(),
       yuborilgan: json['yuborilgan']?.toString() ?? '',
     );

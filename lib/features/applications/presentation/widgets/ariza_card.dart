@@ -12,15 +12,10 @@ class ArizaCard extends StatelessWidget {
 
   Color _getStatusColor() {
     final status = ariza.status.toLowerCase();
-    final statusNomi = ariza.statusNomi.toLowerCase();
-    if (status.contains('rad') ||
-        statusNomi.contains('rad') ||
-        status.contains('reject')) {
+    if (status.contains('rad') || status.contains('reject')) {
       return const Color(0xFFDC2626); // Qizil
     }
-    if (status.contains('kutil') ||
-        statusNomi.contains('kutil') ||
-        status.contains('pend')) {
+    if (status.contains('kutil') || status.contains('pend')) {
       return const Color(0xFFD97706); // Sariq
     }
     return const Color(0xFF0D6E6E); // Zangor (Teal)
@@ -28,10 +23,7 @@ class ArizaCard extends StatelessWidget {
 
   List<Color> _getStatusGradientColors() {
     final status = ariza.status.toLowerCase();
-    final statusNomi = ariza.statusNomi.toLowerCase();
-    if (status.contains('rad') ||
-        statusNomi.contains('rad') ||
-        status.contains('reject')) {
+    if (status.contains('rad') || status.contains('reject')) {
       return const [
         Color(0xFFEF4444),
         Color(0xFFF87171),
@@ -39,9 +31,7 @@ class ArizaCard extends StatelessWidget {
         Color(0xFFEF4444),
       ];
     }
-    if (status.contains('kutil') ||
-        statusNomi.contains('kutil') ||
-        status.contains('pend')) {
+    if (status.contains('kutil') || status.contains('pend')) {
       return const [
         Color(0xFFF59E0B),
         Color(0xFFFBBF24),

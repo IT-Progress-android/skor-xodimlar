@@ -196,19 +196,14 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
                 itemBuilder: (context, index) {
                   final item = state.list[index];
                   final statusLower = item.status.toLowerCase();
-                  final statusNomiLower = item.statusNomi.toLowerCase();
 
                   final bool isRejected =
                       statusLower.contains('rad') ||
-                      statusNomiLower.contains('rad') ||
-                      statusLower.contains('reject') ||
-                      statusNomiLower.contains('reject');
+                      statusLower.contains('reject');
 
                   final bool isPending =
                       statusLower.contains('kutil') ||
-                      statusNomiLower.contains('kutil') ||
-                      statusLower.contains('pend') ||
-                      statusNomiLower.contains('pend');
+                      statusLower.contains('pend');
 
                   Color badgeColor;
                   Color badgeBgColor;

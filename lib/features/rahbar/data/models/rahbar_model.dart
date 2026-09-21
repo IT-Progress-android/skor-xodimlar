@@ -399,11 +399,12 @@ class RahbarArizaModel extends RahbarArizaEntity {
           .toString(),
       kunlar: parseInt(json['kunlar'] ?? json['days']),
       status: (json['status'] ?? 'kutilmoqda').toString(),
-      statusNomi:
-          (json['status_nomi'] ??
-                  json['status'] ??
-                  AppLocalizations.trStatic('status_kutilmoqda'))
-              .toString(),
+      statusNomi: BackendTextMapper.translateArizaStatus(
+        (json['status_nomi'] ??
+                json['status'] ??
+                AppLocalizations.trStatic('status_kutilmoqda'))
+            .toString(),
+      ),
       izoh: json['izoh']?.toString() ?? json['reason']?.toString(),
     );
   }

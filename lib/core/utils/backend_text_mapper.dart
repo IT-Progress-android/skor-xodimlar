@@ -44,6 +44,50 @@ class BackendTextMapper {
   }
 
   // ─────────────────────────────────────────────
+  // ARIZA STATUS: kutilmoqda / tasdiqlangan / rad etilgan
+  // ─────────────────────────────────────────────
+
+  /// Backend ariza statusini ilovaning tiliga o'giradi.
+  /// Backend bu so'zlarni doim o'zbekcha yuborgani uchun
+  /// AppLocalizations kalitlari orqali hozirgi tilga o'giramiz.
+  ///
+  /// Qabul qilingan qiymatlar:
+  ///   "kutilmoqda" / "pending" / "ожидается" / "ожидание"
+  ///   "tasdiqlangan" / "tasdiqlandi" / "approved" / "одобрено" / "подтверждено"
+  ///   "rad etilgan" / "rad etildi" / "rejected" / "отклонено"
+  static String translateArizaStatus(String raw) {
+    switch (raw.trim().toLowerCase()) {
+      // ── Kutilmoqda ──────────────────────────────
+      case 'kutilmoqda':
+      case 'pending':
+      case 'ожидается':
+      case 'ожидание':
+      case 'в ожидании':
+        return AppLocalizations.trStatic('status_kutilmoqda');
+
+      // ── Tasdiqlangan ────────────────────────────
+      case 'tasdiqlangan':
+      case 'tasdiqlandi':
+      case 'approved':
+      case 'одобрено':
+      case 'подтверждено':
+      case 'тастыкталды':
+        return AppLocalizations.trStatic('status_tasdiqlangan');
+
+      // ── Rad etilgan ─────────────────────────────
+      case 'rad etilgan':
+      case 'rad etildi':
+      case 'rejected':
+      case 'отклонено':
+      case 'четке кагылды':
+        return AppLocalizations.trStatic('status_rad_etilgan');
+
+      default:
+        return raw;
+    }
+  }
+
+  // ─────────────────────────────────────────────
   // DELAY: "Yo'q", "Нет", "0" → null yoki formatlangan vaqt
   // ─────────────────────────────────────────────
 
