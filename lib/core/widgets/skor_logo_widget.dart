@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 
 /// Official Native Lottie Chronometer Brand Logo Widget for Skor Xodimlar:
 /// Plays 'assets/animations/Chronometer.json' with exact original 60fps Lottie vector animation!
@@ -39,7 +40,7 @@ class SkorLogoWidget extends StatelessWidget {
             style: GoogleFonts.outfit(
               fontSize: (size * 0.24).clamp(12.0, 32.0),
               fontWeight: FontWeight.w900,
-              color: const Color(0xFF0D6E6E),
+              color: context.colors.primary,
               height: 0.95,
               letterSpacing: 1.5,
             ),
@@ -49,7 +50,7 @@ class SkorLogoWidget extends StatelessWidget {
             style: GoogleFonts.outfit(
               fontSize: (size * 0.18).clamp(10.0, 24.0),
               fontWeight: FontWeight.w800,
-              color: const Color(0xFFF5A623),
+              color: context.colors.accent,
               height: 1.0,
               letterSpacing: 1.2,
             ),

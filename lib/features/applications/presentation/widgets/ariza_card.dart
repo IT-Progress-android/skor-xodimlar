@@ -5,54 +5,53 @@ import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
 import 'package:skore_hodimlar/features/applications/domain/entities/ariza_entity.dart';
 
-
 class ArizaCard extends StatelessWidget {
   final ArizaEntity ariza;
   final VoidCallback? onCancel;
 
   const ArizaCard({super.key, required this.ariza, this.onCancel});
 
-  Color _getStatusColor() {
+  Color _getStatusColor(BuildContext context) {
     final status = ariza.status.toLowerCase();
     if (status.contains('rad') || status.contains('reject')) {
-      return const Color(0xFFDC2626); // Qizil
+      return context.colors.error; // Qizil
     }
     if (status.contains('kutil') || status.contains('pend')) {
       return const Color(0xFFD97706); // Sariq
     }
-    return const Color(0xFF0D6E6E); // Zangor (Teal)
+    return context.colors.primary; // Zangor (Teal)
   }
 
-  List<Color> _getStatusGradientColors() {
+  List<Color> _getStatusGradientColors(BuildContext context) {
     final status = ariza.status.toLowerCase();
     if (status.contains('rad') || status.contains('reject')) {
-      return const [
-        Color(0xFFEF4444),
-        Color(0xFFF87171),
-        Color(0xFFDC2626),
-        Color(0xFFEF4444),
+      return [
+        context.colors.error,
+        const Color(0xFFF87171),
+        context.colors.error,
+        context.colors.error,
       ];
     }
     if (status.contains('kutil') || status.contains('pend')) {
-      return const [
-        Color(0xFFF59E0B),
-        Color(0xFFFBBF24),
-        Color(0xFFD97706),
-        Color(0xFFF59E0B),
+      return [
+        context.colors.warning,
+        const Color(0xFFFBBF24),
+        const Color(0xFFD97706),
+        context.colors.warning,
       ];
     }
-    return const [
-      Color(0xFF0D6E6E),
+    return [
+      context.colors.primary,
       Color(0xFF139797),
       Color(0xFF26BBAA),
-      Color(0xFF0D6E6E),
+      context.colors.primary,
     ];
   }
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = _getStatusColor();
-    final gradientColors = _getStatusGradientColors();
+    final statusColor = _getStatusColor(context);
+    final gradientColors = _getStatusGradientColors(context);
 
     return AnimatedRotatingBorderContainer(
       margin: const EdgeInsets.only(bottom: 14),
@@ -70,11 +69,11 @@ class ArizaCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    BackendTextMapper.translateArizaTuriNomi(ariza.turiNomi),
-                    style: const TextStyle(
+                    ariza.turiNomi,
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: AppColors.textPrimary,
+                      color: context.colors.textPrimary,
                     ),
                   ),
                 ),
@@ -103,18 +102,18 @@ class ArizaCard extends StatelessWidget {
             // Date Range & Duration Chip
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.calendar_month_rounded,
                   size: 16,
-                  color: AppColors.textSecondary,
+                  color: context.colors.textSecondary,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   ariza.fromDate == ariza.toDate
                       ? ariza.fromDate
                       : '${ariza.fromDate} — ${ariza.toDate}',
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
+                  style: TextStyle(
+                    color: context.colors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -126,15 +125,15 @@ class ArizaCard extends StatelessWidget {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
+                    color: context.colors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     context.tr('ariza_card_days_count', {
                       'days': '${ariza.kunlar}',
                     }),
-                    style: const TextStyle(
-                      color: AppColors.primary,
+                    style: TextStyle(
+                      color: context.colors.primary,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
@@ -148,8 +147,8 @@ class ArizaCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 context.tr('ariza_card_comment', {'text': ariza.izoh!}),
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
+                style: TextStyle(
+                  color: context.colors.textSecondary,
                   fontSize: 13,
                   fontStyle: FontStyle.italic,
                 ),
@@ -163,18 +162,18 @@ class ArizaCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.08),
+                  color: context.colors.error.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: AppColors.error.withValues(alpha: 0.2),
+                    color: context.colors.error.withValues(alpha: 0.2),
                   ),
                 ),
                 child: Text(
                   context.tr('ariza_card_review_note', {
                     'text': ariza.reviewIzoh!,
                   }),
-                  style: const TextStyle(
-                    color: AppColors.error,
+                  style: TextStyle(
+                    color: context.colors.error,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -193,8 +192,8 @@ class ArizaCard extends StatelessWidget {
                 if (ariza.yuborilgan.isNotEmpty)
                   Text(
                     context.tr('home_sent_at', {'date': ariza.yuborilgan}),
-                    style: const TextStyle(
-                      color: AppColors.textHint,
+                    style: TextStyle(
+                      color: context.colors.textHint,
                       fontSize: 11,
                     ),
                   )
@@ -203,7 +202,7 @@ class ArizaCard extends StatelessWidget {
                 if (ariza.isPending && onCancel != null)
                   TextButton.icon(
                     style: TextButton.styleFrom(
-                      foregroundColor: AppColors.error,
+                      foregroundColor: context.colors.error,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 4,

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skore_hodimlar/core/constants/api_constants.dart';
 
 /// Xodim tokenini xavfsiz saqlaydi (`Authorization: Bearer <token>` uchun).
@@ -40,8 +41,13 @@ class AuthTokenStore {
     try {
       _cached = await _storage.read(key: _key);
     } catch (_) {
-      // Qurilmada secure storage ishlamasa — tokensiz davom etamiz.
       _cached = null;
+    }
+    if (_cached == null || _cached!.isEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        _cached = prefs.getString(_key);
+      } catch (_) {}
     }
   }
 
@@ -50,12 +56,20 @@ class AuthTokenStore {
     try {
       await _storage.write(key: _key, value: token);
     } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_key, token);
+    } catch (_) {}
   }
 
   Future<void> clear() async {
     _cached = null;
     try {
       await _storage.delete(key: _key);
+    } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_key);
     } catch (_) {}
   }
 

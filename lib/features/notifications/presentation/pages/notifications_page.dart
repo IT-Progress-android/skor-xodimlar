@@ -1,10 +1,13 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/models/notification_model.dart';
+import 'package:skore_hodimlar/core/services/fcm_service.dart';
 import 'package:skore_hodimlar/core/services/notification_storage_service.dart';
 
 class NotificationsPage extends StatefulWidget {
@@ -80,7 +83,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             context.tr('notif_all_marked_read'),
             style: GoogleFonts.outfit(),
           ),
-          backgroundColor: const Color(0xFF0D6E6E),
+          backgroundColor: context.colors.primary,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
         ),
@@ -106,12 +109,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               context.tr('cancel'),
-              style: GoogleFonts.outfit(color: Colors.grey.shade700),
+              style: GoogleFonts.outfit(color: context.colors.textSecondary),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: context.colors.error,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -141,6 +144,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
     if (!mounted) return;
 
+    // Topshiriq xabari — to'g'ridan-to'g'ri topshiriqni ochamiz.
+    if (item.type.startsWith('task_')) {
+      await FcmService.openTaskFromData(item.data ?? const {});
+      return;
+    }
+
     // Show details modal bottom sheet
     unawaited(
       showModalBottomSheet(
@@ -162,8 +171,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
       builder: (context, constraints) {
         return Container(
           constraints: BoxConstraints(maxHeight: constraints.maxHeight * 0.9),
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: context.colors.surface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: SafeArea(
@@ -188,7 +197,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         width: 44,
                         height: 5,
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade300,
+                          color: context.colors.border,
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),
@@ -214,8 +223,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                 ? Icons.alarm_rounded
                                 : Icons.info_outline_rounded,
                             color: isAttendance
-                                ? const Color(0xFF0D6E6E)
-                                : const Color(0xFF3B82F6),
+                                ? context.colors.primary
+                                : context.colors.info,
                             size: 24,
                           ),
                         ),
@@ -229,7 +238,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                 style: GoogleFonts.outfit(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 18,
-                                  color: const Color(0xFF1E293B),
+                                  color: context.colors.textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -237,7 +246,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                 _formatDate(item.timestamp),
                                 style: GoogleFonts.outfit(
                                   fontSize: 12,
-                                  color: Colors.grey.shade500,
+                                  color: context.colors.textHint,
                                 ),
                               ),
                             ],
@@ -250,16 +259,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
+                        color: context.colors.surfaceVariant,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: context.colors.border),
                       ),
                       child: Text(
                         item.body,
                         style: GoogleFonts.outfit(
                           fontSize: 15,
                           height: 1.5,
-                          color: const Color(0xFF334155),
+                          color: context.colors.textPrimary,
                         ),
                       ),
                     ),
@@ -272,7 +281,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         height: 50,
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0D6E6E),
+                            backgroundColor: context.colors.primary,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
@@ -300,7 +309,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       height: 48,
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.grey.shade300),
+                          side: BorderSide(color: context.colors.border),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -312,15 +321,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           );
                           unawaited(_loadNotifications());
                         },
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.delete_outline_rounded,
                           size: 19,
-                          color: Color(0xFFEF4444),
+                          color: context.colors.error,
                         ),
                         label: Text(
                           context.tr('notif_delete'),
                           style: GoogleFonts.outfit(
-                            color: const Color(0xFFEF4444),
+                            color: context.colors.error,
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
                           ),
@@ -343,17 +352,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
     final list = _filteredNotifications;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: context.colors.surfaceVariant,
       appBar: AppBar(
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Color(0xFF0D6E6E),
+            color: context.colors.primary,
             size: 20,
           ),
           onPressed: () => Navigator.of(context).pop(),
@@ -361,14 +370,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
         title: Text(
           context.tr('notif_title'),
           style: GoogleFonts.outfit(
-            color: const Color(0xFF0D6E6E),
+            color: context.colors.primary,
             fontWeight: FontWeight.w900,
             fontSize: 19,
           ),
         ),
         actions: [
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF0D6E6E)),
+            icon: Icon(Icons.more_vert_rounded, color: context.colors.primary),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -381,10 +390,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 value: 'read_all',
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.done_all_rounded,
                       size: 18,
-                      color: Color(0xFF0D6E6E),
+                      color: context.colors.primary,
                     ),
                     const SizedBox(width: 10),
                     Text(
@@ -398,17 +407,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 value: 'clear_all',
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.delete_sweep_rounded,
                       size: 18,
-                      color: Color(0xFFEF4444),
+                      color: context.colors.error,
                     ),
                     const SizedBox(width: 10),
                     Text(
                       context.tr('notif_clear_all_menu'),
                       style: GoogleFonts.outfit(
                         fontSize: 13,
-                        color: const Color(0xFFEF4444),
+                        color: context.colors.error,
                       ),
                     ),
                   ],
@@ -424,7 +433,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             children: [
               // Filter Tabs
               Container(
-                color: Colors.white,
+                color: context.colors.surface,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 10,
@@ -451,19 +460,19 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   ],
                 ),
               ),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              Divider(height: 1, color: context.colors.border),
 
               // Content List
               Expanded(
                 child: _isLoading
-                    ? const Center(
+                    ? Center(
                         child: CircularProgressIndicator(
-                          color: Color(0xFF0D6E6E),
+                          color: context.colors.primary,
                         ),
                       )
                     : RefreshIndicator(
                         onRefresh: _loadNotifications,
-                        color: const Color(0xFF0D6E6E),
+                        color: context.colors.primary,
                         child: list.isEmpty
                             ? _buildEmptyState()
                             : ListView.separated(
@@ -495,7 +504,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0D6E6E) : const Color(0xFFF1F5F9),
+          color: isSelected
+              ? context.colors.primary
+              : context.colors.surfaceStrong,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -504,7 +515,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             Text(
               label,
               style: GoogleFonts.outfit(
-                color: isSelected ? Colors.white : const Color(0xFF475569),
+                color: isSelected ? Colors.white : context.colors.textSecondary,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                 fontSize: 13,
               ),
@@ -516,13 +527,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 decoration: BoxDecoration(
                   color: isSelected
                       ? Colors.white.withValues(alpha: 0.25)
-                      : const Color(0xFFCBD5E1),
+                      : context.colors.border,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   '$count',
                   style: GoogleFonts.outfit(
-                    color: isSelected ? Colors.white : const Color(0xFF334155),
+                    color: isSelected
+                        ? Colors.white
+                        : context.colors.textPrimary,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
@@ -545,7 +558,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
-          color: const Color(0xFFEF4444),
+          color: context.colors.error,
           borderRadius: BorderRadius.circular(16),
         ),
         child: const Icon(
@@ -563,12 +576,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
         onTap: () => _handleNotificationTap(item),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: !item.isRead
-                  ? const Color(0xFF0D6E6E).withValues(alpha: 0.35)
-                  : const Color(0xFFE2E8F0),
+                  ? context.colors.primary.withValues(alpha: 0.35)
+                  : context.colors.border,
               width: !item.isRead ? 1.5 : 1.0,
             ),
             boxShadow: [
@@ -589,8 +602,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: isAttendance
-                      ? const Color(0xFF0D6E6E).withValues(alpha: 0.1)
-                      : const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                      ? context.colors.primary.withValues(alpha: 0.1)
+                      : context.colors.info.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -598,8 +611,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       ? Icons.alarm_rounded
                       : Icons.notifications_rounded,
                   color: isAttendance
-                      ? const Color(0xFF0D6E6E)
-                      : const Color(0xFF3B82F6),
+                      ? context.colors.primary
+                      : context.colors.info,
                   size: 22,
                 ),
               ),
@@ -620,7 +633,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                   ? FontWeight.w800
                                   : FontWeight.w600,
                               fontSize: 15,
-                              color: const Color(0xFF0F172A),
+                              color: context.colors.textPrimary,
                             ),
                           ),
                         ),
@@ -628,7 +641,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           _formatDate(item.timestamp),
                           style: GoogleFonts.outfit(
                             fontSize: 11,
-                            color: Colors.grey.shade500,
+                            color: context.colors.textHint,
                           ),
                         ),
                       ],
@@ -640,7 +653,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(
                         fontSize: 13,
-                        color: const Color(0xFF475569),
+                        color: context.colors.textSecondary,
                         height: 1.35,
                       ),
                     ),
@@ -667,14 +680,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                   style: GoogleFonts.outfit(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF0D6E6E),
+                                    color: context.colors.primary,
                                   ),
                                 ),
                                 const SizedBox(width: 3),
-                                const Icon(
+                                Icon(
                                   Icons.arrow_forward_rounded,
                                   size: 12,
-                                  color: Color(0xFF0D6E6E),
+                                  color: context.colors.primary,
                                 ),
                               ],
                             ),
@@ -692,8 +705,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF0D6E6E),
+                  decoration: BoxDecoration(
+                    color: context.colors.primary,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -717,13 +730,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: const Color(0xFF0D6E6E).withValues(alpha: 0.08),
+                color: context.colors.primary.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.notifications_none_rounded,
                 size: 42,
-                color: Color(0xFF0D6E6E),
+                color: context.colors.primary,
               ),
             ),
             const SizedBox(height: 16),
@@ -732,7 +745,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               style: GoogleFonts.outfit(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF1E293B),
+                color: context.colors.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
@@ -741,7 +754,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 14,
-                color: Colors.grey.shade600,
+                color: context.colors.textSecondary,
                 height: 1.4,
               ),
             ),

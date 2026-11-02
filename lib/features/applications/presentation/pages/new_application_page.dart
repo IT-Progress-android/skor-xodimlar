@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
-import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/features/applications/domain/entities/ariza_entity.dart';
 import 'package:skore_hodimlar/features/applications/presentation/bloc/ariza_bloc.dart';
 
@@ -44,7 +43,7 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.tr('ariza_form_missing_fields')),
-          backgroundColor: AppColors.error,
+          backgroundColor: context.colors.error,
         ),
       );
       return;
@@ -56,7 +55,7 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.tr('ariza_form_invalid_date_range')),
-          backgroundColor: AppColors.error,
+          backgroundColor: context.colors.error,
         ),
       );
       return;
@@ -88,13 +87,13 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
     final earliestDate = DateTime.now().subtract(const Duration(days: 30));
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         title: Text(
           context.tr('ariza_new'),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: AppColors.primary,
+        backgroundColor: context.colors.primary,
         foregroundColor: Colors.white,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -106,7 +105,7 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(context.tr('ariza_form_submitted_success')),
-                backgroundColor: AppColors.success,
+                backgroundColor: context.colors.success,
               ),
             );
             context.pop(true);
@@ -114,7 +113,7 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
-                backgroundColor: AppColors.error,
+                backgroundColor: context.colors.error,
                 duration: const Duration(seconds: 4),
               ),
             );
@@ -138,26 +137,26 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
+                    color: context.colors.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.2),
+                      color: context.colors.primary.withValues(alpha: 0.2),
                     ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.info_outline_rounded,
-                        color: AppColors.primary,
+                        color: context.colors.primary,
                         size: 20,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           context.tr('ariza_form_date_range_info'),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textPrimary,
+                            color: context.colors.textPrimary,
                           ),
                         ),
                       ),
@@ -169,33 +168,33 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                 // Ariza Turi Dropdown
                 Text(
                   context.tr('ariza_form_type_label'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<ArizaTuriEntity>(
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: context.colors.surface,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 14,
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.divider),
+                      borderSide: BorderSide(color: context.colors.divider),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.divider),
+                      borderSide: BorderSide(color: context.colors.divider),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: AppColors.primary,
+                      borderSide: BorderSide(
+                        color: context.colors.primary,
                         width: 2,
                       ),
                     ),
@@ -207,7 +206,7 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                         (e) => DropdownMenuItem(
                           value: e,
                           child: Text(
-                            BackendTextMapper.translateArizaTuriNomi(e.nomi),
+                            e.nomi,
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
@@ -229,7 +228,7 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
-                              color: AppColors.textPrimary,
+                              color: context.colors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -241,14 +240,6 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                                 firstDate: earliestDate,
                                 lastDate: DateTime.now().add(
                                   const Duration(days: 365),
-                                ),
-                                builder: (context, child) => Theme(
-                                  data: ThemeData.light().copyWith(
-                                    colorScheme: const ColorScheme.light(
-                                      primary: AppColors.primary,
-                                    ),
-                                  ),
-                                  child: child!,
                                 ),
                               );
                               if (date != null) {
@@ -267,16 +258,18 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                                 vertical: 14,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: context.colors.surface,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.divider),
+                                border: Border.all(
+                                  color: context.colors.divider,
+                                ),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.calendar_today_rounded,
                                     size: 18,
-                                    color: AppColors.primary,
+                                    color: context.colors.primary,
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
@@ -291,8 +284,8 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                                             ? FontWeight.bold
                                             : FontWeight.normal,
                                         color: fromDate != null
-                                            ? AppColors.textPrimary
-                                            : AppColors.textHint,
+                                            ? context.colors.textPrimary
+                                            : context.colors.textHint,
                                         fontSize: 13,
                                       ),
                                     ),
@@ -314,7 +307,7 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
-                              color: AppColors.textPrimary,
+                              color: context.colors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -328,14 +321,6 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                                 lastDate: DateTime.now().add(
                                   const Duration(days: 365),
                                 ),
-                                builder: (context, child) => Theme(
-                                  data: ThemeData.light().copyWith(
-                                    colorScheme: const ColorScheme.light(
-                                      primary: AppColors.primary,
-                                    ),
-                                  ),
-                                  child: child!,
-                                ),
                               );
                               if (date != null) setState(() => toDate = date);
                             },
@@ -345,16 +330,18 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                                 vertical: 14,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: context.colors.surface,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.divider),
+                                border: Border.all(
+                                  color: context.colors.divider,
+                                ),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.event_rounded,
                                     size: 18,
-                                    color: AppColors.accent,
+                                    color: context.colors.accent,
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
@@ -375,8 +362,8 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                                             ? FontWeight.bold
                                             : FontWeight.normal,
                                         color: toDate != null
-                                            ? AppColors.textPrimary
-                                            : AppColors.textHint,
+                                            ? context.colors.textPrimary
+                                            : context.colors.textHint,
                                         fontSize: 13,
                                       ),
                                     ),
@@ -400,13 +387,13 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
+                        color: context.colors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         context.tr('ariza_form_duration', {'days': '$_kunlar'}),
-                        style: const TextStyle(
-                          color: AppColors.primary,
+                        style: TextStyle(
+                          color: context.colors.primary,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
@@ -420,10 +407,10 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                 // Izoh textarea
                 Text(
                   context.tr('ariza_form_reason_label'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -433,24 +420,24 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                   maxLength: 2000,
                   decoration: InputDecoration(
                     hintText: context.tr('ariza_form_reason_hint'),
-                    hintStyle: const TextStyle(
-                      color: AppColors.textHint,
+                    hintStyle: TextStyle(
+                      color: context.colors.textHint,
                       fontSize: 13,
                     ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: context.colors.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.divider),
+                      borderSide: BorderSide(color: context.colors.divider),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: AppColors.divider),
+                      borderSide: BorderSide(color: context.colors.divider),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: AppColors.primary,
+                      borderSide: BorderSide(
+                        color: context.colors.primary,
                         width: 2,
                       ),
                     ),
@@ -465,7 +452,7 @@ class _NewApplicationPageState extends State<NewApplicationPage> {
                   child: ElevatedButton(
                     onPressed: (state is ArizaLoading) ? null : _submit,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: context.colors.primary,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),

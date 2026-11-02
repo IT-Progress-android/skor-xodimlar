@@ -1,15 +1,22 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 
 typedef OnCaptureBytes = void Function(Uint8List imageBytes);
+
+/// Kamera logi: `adb logcat | grep "SELFIE CAM"`.
+void _log(String message) =>
+    debugPrint('[SELFIE CAM] ${DateTime.now().toIso8601String()} $message');
 
 enum _Stage { positioning, blink, capturing }
 
@@ -27,6 +34,7 @@ class SelfieCameraWidget extends StatefulWidget {
 
 class _SelfieCameraWidgetState extends State<SelfieCameraWidget>
     with WidgetsBindingObserver {
+  // Camera UI is always drawn on black, so it keeps the fixed brand teal.
   static const _teal = Color(0xFF0D6E6E);
   // Consecutive good frames required before auto-capturing (~0.7s of stability).
   static const _requiredGoodFrames = 6;
@@ -72,28 +80,49 @@ class _SelfieCameraWidgetState extends State<SelfieCameraWidget>
     _initCamera();
   }
 
+  int _initSeq = 0;
+  bool _reinitAfterCurrent = false;
+  int _frameCount = 0;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _log(
+      'lifecycle=$state controller=${_controller == null ? 'yoq' : 'bor'} '
+      'initInProgress=$_initInProgress',
+    );
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
       final controller = _controller;
       if (controller != null && controller.value.isInitialized) {
+        _log('lifecycle: controller yopilmoqda (dispose)');
         controller.dispose();
         _controller = null;
       }
     } else if (state == AppLifecycleState.resumed) {
-      // Reset flag so _initCamera() can run again after user grants permission in Settings
-      _initInProgress = false;
-      _initCamera();
+      // Init hali tugamagan bo'lsa ikkinchisini parallel boshlamaymiz: bitta
+      // kameraga ikki controller ulansa CameraX "No supported surface
+      // combination" bilan yiqiladi. Tugagach, kamera yo'q bo'lsa qayta
+      // ochiladi (masalan, sozlamalardan ruxsat berib qaytganda).
+      if (_initInProgress) {
+        _reinitAfterCurrent = true;
+      } else if (_controller == null) {
+        _initCamera();
+      }
     }
   }
 
   Future<void> _initCamera() async {
-    if (_initInProgress) return;
+    final seq = ++_initSeq;
+    if (_initInProgress) {
+      _log('init #$seq o\'tkazib yuborildi — boshqa init davom etyapti');
+      return;
+    }
     _initInProgress = true;
+    _log('init #$seq boshlandi');
 
     final previous = _controller;
     _controller = null;
+    if (previous != null) _log('init #$seq: oldingi controller yopilmoqda');
     await previous?.dispose();
 
     if (!mounted) {
@@ -126,7 +155,12 @@ class _SelfieCameraWidgetState extends State<SelfieCameraWidget>
         return;
       }
 
+      _log('init #$seq: ruxsat=$camStatus');
       final cameras = await availableCameras();
+      _log(
+        'init #$seq: kameralar=${cameras.length} '
+        '${cameras.map((c) => '${c.name}/${c.lensDirection.name}/${c.sensorOrientation}°').join(', ')}',
+      );
       if (!mounted) return;
       if (cameras.isEmpty) {
         _fail(context.tr('selfie_camera_not_found'));
@@ -148,7 +182,12 @@ class _SelfieCameraWidgetState extends State<SelfieCameraWidget>
             ? ImageFormatGroup.nv21
             : ImageFormatGroup.bgra8888,
       );
+      _log('init #$seq: ${front.name} medium nv21 — initialize()...');
       await controller.initialize();
+      _log(
+        'init #$seq: initialize OK preview=${controller.value.previewSize} '
+        'mounted=$mounted',
+      );
 
       if (!mounted) {
         await controller.dispose();
@@ -158,12 +197,31 @@ class _SelfieCameraWidgetState extends State<SelfieCameraWidget>
         _controller = controller;
         _initializing = false;
       });
+      _frameCount = 0;
+      _log('init #$seq: startImageStream()...');
       await controller.startImageStream(_processFrame);
-    } catch (_) {
+      _log('init #$seq: startImageStream qaytdi');
+      Future.delayed(const Duration(seconds: 3), () {
+        if (_controller == controller) {
+          _log(
+            'init #$seq: 3 s da $_frameCount ta kadr keldi'
+            '${_frameCount == 0 ? ' — KAMERA KADR BERMAYAPTI' : ''}',
+          );
+        }
+      });
+    } catch (e, st) {
+      _log('init #$seq: XATO $e\n$st');
       if (!mounted) return;
       _fail(context.tr('selfie_camera_open_failed'));
     } finally {
       _initInProgress = false;
+      _log('init #$seq tugadi');
+      final reinit = _reinitAfterCurrent;
+      _reinitAfterCurrent = false;
+      if (reinit && mounted && _controller == null) {
+        _log('init #$seq: kamera ochilmadi, qayta urinilmoqda');
+        unawaited(_initCamera());
+      }
     }
   }
 
@@ -176,14 +234,33 @@ class _SelfieCameraWidgetState extends State<SelfieCameraWidget>
   }
 
   Future<void> _processFrame(CameraImage image) async {
+    if (++_frameCount == 1) {
+      _log(
+        'birinchi kadr: ${image.width}x${image.height} '
+        'format=${image.format.raw} planes=${image.planes.length}',
+      );
+    }
     if (_detecting || _capturing || !mounted) return;
     _detecting = true;
     try {
       final input = _toInputImage(image);
-      if (input == null) return;
+      if (input == null) {
+        if (_frameCount % 15 == 1) {
+          _log(
+            'kadr #$_frameCount ML Kit\'ga berilmadi: format=${image.format.raw} '
+            'planes=${image.planes.length} '
+            'orientation=${_controller?.value.deviceOrientation}',
+          );
+        }
+        return;
+      }
       final faces = await _faceDetector.processImage(input);
+      if (_frameCount % 15 == 0) {
+        _log('kadr #$_frameCount: yuz=${faces.length} bosqich=${_stage.name}');
+      }
       _evaluate(faces, image);
-    } catch (_) {
+    } catch (e) {
+      if (_frameCount % 15 == 0) _log('kadr #$_frameCount: xato $e');
       // Ignore transient per-frame errors; the next frame retries.
     } finally {
       _detecting = false;
@@ -278,14 +355,18 @@ class _SelfieCameraWidgetState extends State<SelfieCameraWidget>
     }
 
     try {
+      _log('rasm olish: stopImageStream...');
       if (controller.value.isStreamingImages) {
         await controller.stopImageStream();
       }
+      _log('rasm olish: takePicture...');
       final file = await controller.takePicture();
       final bytes = await _compressSelfie(file.path);
+      _log('rasm olindi: ${bytes.length} bayt');
       if (!mounted) return;
       widget.onCapture(bytes);
-    } catch (_) {
+    } catch (e, st) {
+      _log('rasm olishda XATO $e\n$st');
       _capturing = false;
       if (mounted) {
         setState(() => _error = context.tr('selfie_capture_error'));
@@ -351,6 +432,7 @@ class _SelfieCameraWidgetState extends State<SelfieCameraWidget>
 
   @override
   void dispose() {
+    _log('widget dispose');
     WidgetsBinding.instance.removeObserver(this);
     _faceDetector.close();
     _controller?.dispose();
@@ -494,10 +576,17 @@ class _SelfieCameraWidgetState extends State<SelfieCameraWidget>
       );
     }
 
+    // Circle scales with the screen: 280 on regular phones, smaller on
+    // compact ones (320dp wide / short screens), capped on tablets.
+    final screen = MediaQuery.sizeOf(context);
+    final previewSize = (screen.shortestSide * 0.75)
+        .clamp(200.0, 320.0)
+        .clamp(0.0, screen.height * 0.45);
+
     // Ring: teal while positioning, amber during the blink check,
     // green once capturing.
     final Color ringColor = _stage == _Stage.blink
-        ? const Color(0xFFF5A623)
+        ? context.colors.accent
         : _teal;
 
     final String heading;
@@ -532,8 +621,8 @@ class _SelfieCameraWidgetState extends State<SelfieCameraWidget>
             const Spacer(),
             Center(
               child: Container(
-                width: 280,
-                height: 280,
+                width: previewSize,
+                height: previewSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: ringColor, width: 4),

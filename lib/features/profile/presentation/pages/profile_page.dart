@@ -1,27 +1,28 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/network/dio_client.dart';
+import 'package:skore_hodimlar/core/security/app_lock_service.dart';
+import 'package:skore_hodimlar/core/security/security_settings_page.dart';
 import 'package:skore_hodimlar/core/services/app_update_service.dart';
 import 'package:skore_hodimlar/core/services/auth_token_store.dart';
 import 'package:skore_hodimlar/core/services/fcm_service.dart';
 import 'package:skore_hodimlar/core/services/gps_live_tracker_service.dart';
+import 'package:skore_hodimlar/core/theme/theme_cubit.dart';
 import 'package:skore_hodimlar/core/utils/work_days_formatter.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_ring.dart';
 import 'package:skore_hodimlar/core/widgets/app_update_bottom_sheet.dart';
 import 'package:skore_hodimlar/core/widgets/language_picker_bottom_sheet.dart';
 import 'package:skore_hodimlar/core/widgets/notification_bell_button.dart';
+import 'package:skore_hodimlar/core/widgets/pull_to_refresh.dart';
 import 'package:skore_hodimlar/core/widgets/skor_logo_widget.dart';
-import 'package:skore_hodimlar/features/attendance/presentation/bloc/attendance_bloc.dart';
-import 'package:skore_hodimlar/features/profile/domain/entities/profile_entity.dart';
+import 'package:skore_hodimlar/core/widgets/theme_picker_bottom_sheet.dart';
 import 'package:skore_hodimlar/features/profile/presentation/bloc/profile_bloc.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -34,7 +35,6 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   String? phone;
   int? staffId;
-  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -54,75 +54,13 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _pickAndUploadPhoto(
-    ImageSource source,
-    ProfileEntity profile,
-  ) async {
-    try {
-      final XFile? image = await _picker.pickImage(
-        source: source,
-        maxWidth: 1080,
-        imageQuality: 85,
-      );
-      if (image != null && mounted) {
-        final file = File(image.path);
-        context.read<ProfileBloc>().add(
-          UploadPhotoSubmitted(
-            phone: profile.phone,
-            staffId: profile.id,
-            photoFile: file,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _showSnackBar('${context.tr('photo_picker_error')}: $e');
-      }
-    }
-  }
-
-  void _showPhotoPicker(ProfileEntity profile) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(
-                Icons.photo_camera_rounded,
-                color: AppColors.primary,
-              ),
-              title: Text(context.tr('camera_photo')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _pickAndUploadPhoto(ImageSource.camera, profile);
-              },
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.photo_library_rounded,
-                color: AppColors.primary,
-              ),
-              title: Text(context.tr('gallery_photo')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _pickAndUploadPhoto(ImageSource.gallery, profile);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showSnackBar(String message, {bool isError = true}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? AppColors.error : AppColors.primary,
+        backgroundColor: isError
+            ? context.colors.error
+            : context.colors.primary,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -138,12 +76,12 @@ class _ProfilePageState extends State<ProfilePage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
+                color: context.colors.error.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.logout_rounded,
-                color: AppColors.error,
+                color: context.colors.error,
                 size: 22,
               ),
             ),
@@ -151,10 +89,10 @@ class _ProfilePageState extends State<ProfilePage> {
             Expanded(
               child: Text(
                 context.tr('logout_confirmation_title'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  color: context.colors.textPrimary,
                 ),
               ),
             ),
@@ -162,7 +100,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         content: Text(
           context.tr('logout_confirmation_desc'),
-          style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
+          style: TextStyle(fontSize: 15, color: context.colors.textSecondary),
         ),
         actionsPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -173,15 +111,15 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               context.tr('cancel'),
-              style: const TextStyle(
-                color: AppColors.textSecondary,
+              style: TextStyle(
+                color: context.colors.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
+              backgroundColor: context.colors.error,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -209,8 +147,9 @@ class _ProfilePageState extends State<ProfilePage> {
     await AuthTokenStore.instance.revokeAndClear(sl<DioClient>().dio);
     await FcmService.deleteTokenFromBackend(phone: phone, staffId: staffId);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await FcmService.clearPrefsKeepingDeviceId(prefs);
     await FcmService.syncUserRole();
+    await AppLockService.instance.clear();
     if (!mounted) return;
     context.read<ProfileBloc>().add(LogoutProfile());
     context.go('/login');
@@ -218,13 +157,14 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = context.watch<ThemeCubit>().state;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         centerTitle: true,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         leadingWidth: 54,
         leading: Padding(
@@ -249,8 +189,8 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         title: Text(
           context.tr('profile_title'),
-          style: const TextStyle(
-            color: Color(0xFF0D6E6E),
+          style: TextStyle(
+            color: context.colors.primary,
             fontWeight: FontWeight.w900,
             fontSize: 20,
             letterSpacing: 0.5,
@@ -267,22 +207,18 @@ class _ProfilePageState extends State<ProfilePage> {
           }
         },
         builder: (context, state) {
-          if (state is ProfileLoading ||
-              state is ProfilePhotoUploading ||
-              state is ProfilePhoneChanging) {
+          if (state is ProfileLoading || state is ProfilePhoneChanging) {
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const CircularProgressIndicator(color: AppColors.primary),
+                  CircularProgressIndicator(color: context.colors.primary),
                   const SizedBox(height: 16),
                   Text(
-                    state is ProfilePhotoUploading
-                        ? context.tr('photo_uploading')
-                        : state is ProfilePhoneChanging
+                    state is ProfilePhoneChanging
                         ? context.tr('phone_updating')
                         : context.tr('profile_loading'),
-                    style: const TextStyle(color: AppColors.textSecondary),
+                    style: TextStyle(color: context.colors.textSecondary),
                   ),
                 ],
               ),
@@ -291,22 +227,10 @@ class _ProfilePageState extends State<ProfilePage> {
 
           if (state is ProfileLoaded) {
             final profile = state.entity;
-            final attState = context.watch<AttendanceBloc>().state;
-            bool isKelgan = false;
-            if (attState is TodayAttendanceLoaded) {
-              final today = attState.entity;
-              isKelgan =
-                  today.inside ||
-                  (today.checkIn?.time != null &&
-                      today.checkIn!.time!.isNotEmpty) ||
-                  today.events.any((e) => e.isIn);
-            }
-            final bool isFaceActive =
-                profile.hasFace || profile.hasPhoto || isKelgan;
 
             return RefreshIndicator(
-              onRefresh: () async => _loadData(),
-              color: AppColors.primary,
+              onRefresh: () => refreshWithMinDelay(_loadData),
+              color: context.colors.primary,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Column(
@@ -315,7 +239,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: context.colors.surface,
                         borderRadius: const BorderRadius.only(
                           bottomLeft: Radius.circular(28),
                           bottomRight: Radius.circular(28),
@@ -336,26 +260,19 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       child: Column(
                         children: [
-                          GestureDetector(
-                            onTap: () {
-                              if (profile.editable.contains('photo')) {
-                                _showPhotoPicker(profile);
-                              }
-                            },
-                            child: AnimatedRotatingRing(
-                              size: 110,
-                              borderWidth: 3.5,
-                              child: ClipOval(
-                                child: Image.network(
-                                  state.photoUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const Icon(
-                                        Icons.person,
-                                        size: 60,
-                                        color: AppColors.primary,
-                                      ),
-                                ),
+                          AnimatedRotatingRing(
+                            size: 110,
+                            borderWidth: 3.5,
+                            child: ClipOval(
+                              child: Image.network(
+                                state.photoUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Icon(
+                                      Icons.person,
+                                      size: 60,
+                                      color: context.colors.primary,
+                                    ),
                               ),
                             ),
                           ),
@@ -364,10 +281,10 @@ class _ProfilePageState extends State<ProfilePage> {
                             profile.name.isNotEmpty
                                 ? profile.name
                                 : context.tr('user'),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              color: context.colors.textPrimary,
                             ),
                           ),
                         ],
@@ -418,22 +335,26 @@ class _ProfilePageState extends State<ProfilePage> {
                           if (profile.workDays.isNotEmpty)
                             _buildWorkDaysTile(profile.workDays),
                           _buildInfoTile(
-                            icon: Icons.face_retouching_natural_rounded,
-                            title: context.tr('face_verify'),
-                            value: isFaceActive
-                                ? context.tr('face_configured')
-                                : context.tr('face_not_configured'),
-                            valueColor: isFaceActive
-                                ? AppColors.success
-                                : AppColors.error,
-                          ),
-                          _buildInfoTile(
                             icon: Icons.language_rounded,
                             title: context.tr('app_language'),
                             value:
                                 '${context.currentAppLanguage.flag}  ${context.currentAppLanguage.title}',
                             onTap: () =>
                                 LanguagePickerBottomSheet.show(context),
+                          ),
+                          _buildInfoTile(
+                            icon: ThemePickerBottomSheet.iconFor(themeMode),
+                            title: context.tr('app_theme'),
+                            value: context.tr(
+                              ThemePickerBottomSheet.labelKeyFor(themeMode),
+                            ),
+                            onTap: () => ThemePickerBottomSheet.show(context),
+                          ),
+                          _buildInfoTile(
+                            icon: Icons.lock_outline_rounded,
+                            title: context.tr('security_title'),
+                            value: context.tr('security_subtitle'),
+                            onTap: () => SecuritySettingsPage.open(context),
                           ),
                           _buildInfoTile(
                             icon: Icons.system_update_rounded,
@@ -451,13 +372,22 @@ class _ProfilePageState extends State<ProfilePage> {
                                       updateInfo: update,
                                     ),
                                   );
+                                } else if (AppUpdateService.lastCheckFailed) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        context.tr('update_check_failed'),
+                                      ),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
                                         context.tr('latest_version_installed'),
                                       ),
-                                      backgroundColor: const Color(0xFF16A34A),
+                                      backgroundColor: context.colors.success,
                                       behavior: SnackBarBehavior.floating,
                                     ),
                                   );
@@ -473,19 +403,19 @@ class _ProfilePageState extends State<ProfilePage> {
                             height: 52,
                             child: OutlinedButton.icon(
                               onPressed: _handleLogout,
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.logout_rounded,
-                                color: AppColors.error,
+                                color: context.colors.error,
                                 size: 22,
                               ),
                               label: Text(
                                 context.tr('logout'),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.error,
+                                  color: context.colors.error,
                                   height: 1.2,
                                 ),
                               ),
@@ -494,8 +424,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                   horizontal: 16,
                                   vertical: 10,
                                 ),
-                                side: const BorderSide(
-                                  color: AppColors.error,
+                                side: BorderSide(
+                                  color: context.colors.error,
                                   width: 1.5,
                                 ),
                                 shape: RoundedRectangleBorder(
@@ -535,7 +465,7 @@ class _ProfilePageState extends State<ProfilePage> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.divider),
+        side: BorderSide(color: context.colors.divider),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -548,37 +478,34 @@ class _ProfilePageState extends State<ProfilePage> {
           leading: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
+              color: context.colors.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: AppColors.primary, size: 22),
+            child: Icon(icon, color: context.colors.primary, size: 22),
           ),
           title: Text(
             title,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 12, color: context.colors.textSecondary),
           ),
           subtitle: Text(
             value,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: valueColor ?? AppColors.textPrimary,
+              color: valueColor ?? context.colors.textPrimary,
             ),
           ),
           trailing:
               trailing ??
               (actionIcon != null
                   ? IconButton(
-                      icon: Icon(actionIcon, color: AppColors.accent),
+                      icon: Icon(actionIcon, color: context.colors.accent),
                       onPressed: onAction,
                     )
                   : (onTap != null
-                        ? const Icon(
+                        ? Icon(
                             Icons.chevron_right_rounded,
-                            color: AppColors.textSecondary,
+                            color: context.colors.textSecondary,
                           )
                         : null)),
         ),
@@ -598,7 +525,7 @@ class _ProfilePageState extends State<ProfilePage> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.divider),
+        side: BorderSide(color: context.colors.divider),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -610,12 +537,12 @@ class _ProfilePageState extends State<ProfilePage> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
+                    color: context.colors.primary.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.calendar_month_rounded,
-                    color: AppColors.primary,
+                    color: context.colors.primary,
                     size: 22,
                   ),
                 ),
@@ -626,18 +553,18 @@ class _ProfilePageState extends State<ProfilePage> {
                     children: [
                       Text(
                         context.tr('work_days'),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textSecondary,
+                          color: context.colors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         summary,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: context.colors.textPrimary,
                         ),
                       ),
                     ],
@@ -662,17 +589,17 @@ class _ProfilePageState extends State<ProfilePage> {
                       height: 38,
                       decoration: BoxDecoration(
                         color: isWorkDay
-                            ? AppColors.primary
-                            : const Color(0xFFF1F5F9),
+                            ? context.colors.primary
+                            : context.colors.surfaceStrong,
                         borderRadius: BorderRadius.circular(10),
                         border: isToday
                             ? Border.all(
-                                color: const Color(0xFFF59E0B),
+                                color: context.colors.warning,
                                 width: 2.2,
                               )
                             : (isWorkDay
                                   ? null
-                                  : Border.all(color: const Color(0xFFE2E8F0))),
+                                  : Border.all(color: context.colors.border)),
                         boxShadow: isToday
                             ? [
                                 BoxShadow(
@@ -696,8 +623,8 @@ class _ProfilePageState extends State<ProfilePage> {
                             color: isWorkDay
                                 ? Colors.white
                                 : (isToday
-                                      ? const Color(0xFF1E293B)
-                                      : const Color(0xFF94A3B8)),
+                                      ? context.colors.textPrimary
+                                      : context.colors.textHint),
                           ),
                         ),
                       ),

@@ -34,10 +34,13 @@ class LoadRahbarKundalik extends RahbarEvent {
 }
 
 class LoadRahbarPayroll extends RahbarEvent {
-  final String? month;
-  const LoadRahbarPayroll({this.month});
+  /// `hafta` | `oy` | `yil`. `null` — oxirgi tanlangan davr qayta yuklanadi
+  /// (masalan, pastki menyudan tab almashtirilganda).
+  final String? davr;
+  final String? sana;
+  const LoadRahbarPayroll({this.davr, this.sana});
   @override
-  List<Object?> get props => [month];
+  List<Object?> get props => [davr, sana];
 }
 
 class LoadRahbarArizalar extends RahbarEvent {}
@@ -88,10 +91,11 @@ class RahbarKundalikLoaded extends RahbarState {
 }
 
 class RahbarPayrollLoaded extends RahbarState {
-  final List<RahbarPayrollItemEntity> list;
-  const RahbarPayrollLoaded(this.list);
+  final RahbarPayrollReport report;
+  const RahbarPayrollLoaded(this.report);
+  List<RahbarPayrollItemEntity> get list => report.items;
   @override
-  List<Object?> get props => [list];
+  List<Object?> get props => [report];
 }
 
 class RahbarArizalarLoaded extends RahbarState {
@@ -160,14 +164,24 @@ class RahbarBloc extends Bloc<RahbarEvent, RahbarState> {
     }
   }
 
+  String _payrollDavr = 'oy';
+  String? _payrollSana;
+
   Future<void> _onLoadPayroll(
     LoadRahbarPayroll event,
     Emitter<RahbarState> emit,
   ) async {
     emit(RahbarLoading());
     try {
-      final list = await remoteDataSource.getPayroll(month: event.month);
-      emit(RahbarPayrollLoaded(list));
+      if (event.davr != null) {
+        _payrollDavr = event.davr!;
+        _payrollSana = event.sana;
+      }
+      final report = await remoteDataSource.getPayroll(
+        davr: _payrollDavr,
+        sana: _payrollSana,
+      );
+      emit(RahbarPayrollLoaded(report));
     } catch (e) {
       emit(RahbarError(DioRetryHelper.formatErrorMessage(e)));
     }

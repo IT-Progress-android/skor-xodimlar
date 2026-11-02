@@ -21,18 +21,18 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         centerTitle: true,
         title: Text(
           context.tr('rahbar_report_filial_title'),
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF0D6E6E),
+            color: context.colors.primary,
             fontSize: 18,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
@@ -58,11 +58,14 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
               icon: Icons.apartment_rounded,
               title: context.tr('rahbar_branches_not_found'),
               subtitle: context.tr('rahbar_branches_empty_desc'),
+              refreshable: true,
             );
           }
 
           return SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
             padding: const EdgeInsets.all(16),
             child: ExpansionPanelList(
               elevation: 0,
@@ -116,7 +119,7 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
                 return ExpansionPanel(
                   isExpanded: _expanded.contains(index),
                   canTapOnHeader: true,
-                  backgroundColor: Colors.white,
+                  backgroundColor: context.colors.surface,
                   headerBuilder: (ctx, isExpanded) => ListTile(
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -125,12 +128,12 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0D6E6E).withValues(alpha: 0.1),
+                        color: context.colors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.apartment_rounded,
-                        color: Color(0xFF0D6E6E),
+                        color: context.colors.primary,
                         size: 22,
                       ),
                     ),
@@ -139,7 +142,7 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
                       style: GoogleFonts.outfit(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
-                        color: AppColors.textPrimary,
+                        color: context.colors.textPrimary,
                       ),
                     ),
                     subtitle: Text(
@@ -150,7 +153,7 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
                       style: GoogleFonts.outfit(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade600,
+                        color: context.colors.textSecondary,
                       ),
                     ),
                     trailing: SizedBox(
@@ -162,17 +165,17 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
                           CircularProgressIndicator(
                             value: percent,
                             strokeWidth: 3.5,
-                            backgroundColor: Colors.grey.shade200,
+                            backgroundColor: context.colors.surfaceStrong,
                             color: percent > 0.5
-                                ? const Color(0xFF16A34A)
-                                : const Color(0xFF0D6E6E),
+                                ? context.colors.success
+                                : context.colors.primary,
                           ),
                           Text(
                             '${(percent * 100).round()}%',
                             style: GoogleFonts.outfit(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              color: context.colors.textPrimary,
                             ),
                           ),
                         ],
@@ -186,14 +189,14 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
                             context.tr('rahbar_branch_no_staff'),
                             style: GoogleFonts.outfit(
                               fontSize: 13,
-                              color: Colors.grey.shade500,
+                              color: context.colors.textHint,
                             ),
                           ),
                         )
                       : DecoratedBox(
                           decoration: BoxDecoration(
                             border: Border(
-                              top: BorderSide(color: Colors.grey.shade100),
+                              top: BorderSide(color: context.colors.divider),
                             ),
                           ),
                           child: Column(
@@ -228,15 +231,15 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
                                       : Icons.cancel_rounded,
                                   size: 18,
                                   color: hasIn
-                                      ? const Color(0xFF16A34A)
-                                      : Colors.red.shade400,
+                                      ? context.colors.success
+                                      : context.colors.error,
                                 ),
                                 title: Text(
                                   name,
                                   style: GoogleFonts.outfit(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 13.5,
-                                    color: AppColors.textPrimary,
+                                    color: context.colors.textPrimary,
                                   ),
                                 ),
                                 trailing: Text(
@@ -245,8 +248,8 @@ class _RahbarFilialPageState extends State<RahbarFilialPage> {
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w500,
                                     color: hasIn
-                                        ? const Color(0xFF16A34A)
-                                        : Colors.grey.shade600,
+                                        ? context.colors.success
+                                        : context.colors.textSecondary,
                                   ),
                                 ),
                               );

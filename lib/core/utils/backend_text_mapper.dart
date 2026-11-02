@@ -58,7 +58,10 @@ class BackendTextMapper {
   /// Musbat vaqt yoki kechikish daqiqasi bo'lsa -> true.
   static bool isLate(String? rawDelay) {
     if (rawDelay == null) return false;
-    final t = rawDelay.trim().toLowerCase().replaceAll(RegExp(r"[‘’ʻʼ'`]"), "'");
+    final t = rawDelay.trim().toLowerCase().replaceAll(
+      RegExp(r"[‘’ʻʼ'`]"),
+      "'",
+    );
     if (t.isEmpty ||
         t == '0' ||
         t == '00:00' ||
@@ -211,69 +214,6 @@ class BackendTextMapper {
       return null;
     }
     return raw.trim();
-  }
-
-  // ─────────────────────────────────────────────
-  // ARIZA TURI NOMI: "Javob so'rash", "Ta'til" → 4 tilda
-  // ─────────────────────────────────────────────
-
-  /// Backend ariza turining o'zbekcha nomini ilovaning tiliga o'giradi.
-  /// Apostroflar (', ‘, ’, ʻ, ʼ) avtomatik normallashtiriladi.
-  /// Noma'lum tur kelsa — o'zgartirmasdan qaytaradi.
-  static String translateArizaTuriNomi(String raw) {
-    final clean = raw.trim().toLowerCase().replaceAll(RegExp(r"[‘’ʻʼ'`]"), "'");
-    switch (clean) {
-      // ── Javob so'rash ───────────────────────────
-      case "javob so'rash":
-      case 'javob sorash':
-      case 'отпроситься':
-      case 'отгул':
-      case 'permission':
-      case 'short leave':
-      case 'сурануу':
-        return AppLocalizations.trStatic('ariza_type_javob_sorash');
-
-      // ── Ta'til ──────────────────────────────────
-      case "ta'til":
-      case 'tatil':
-      case 'отпуск':
-      case 'vacation':
-      case 'annual leave':
-      case 'эмгек өргүү':
-        return AppLocalizations.trStatic('ariza_type_tatil');
-
-      // ── Kasallik ────────────────────────────────
-      case 'kasallik':
-      case 'больничный':
-      case 'sick leave':
-      case 'оору өргүүсү':
-        return AppLocalizations.trStatic('ariza_type_kasallik');
-
-      // ── Xizmat safari ───────────────────────────
-      case 'xizmat safari':
-      case 'командировка':
-      case 'business trip':
-      case 'иш сапары':
-        return AppLocalizations.trStatic('ariza_type_xizmat_safari');
-
-      // ── Sababsiz ────────────────────────────────
-      case 'sababsiz':
-      case 'без причины':
-      case 'unexcused':
-      case 'no reason':
-      case 'себепсиз':
-        return AppLocalizations.trStatic('ariza_type_sababsiz');
-
-      // ── Boshqa ──────────────────────────────────
-      case 'boshqa':
-      case 'другое':
-      case 'other':
-      case 'башка':
-        return AppLocalizations.trStatic('ariza_type_boshqa');
-
-      default:
-        return raw;
-    }
   }
 
   // ─────────────────────────────────────────────

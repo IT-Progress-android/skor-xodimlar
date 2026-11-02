@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/bloc/rahbar_bloc.dart';
@@ -8,6 +9,7 @@ import 'package:skore_hodimlar/features/rahbar/presentation/pages/rahbar_kundali
 import 'package:skore_hodimlar/features/rahbar/presentation/pages/rahbar_kunlik_page.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/pages/rahbar_qoldiruvchilar_page.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/pages/rahbar_xodimlar_report_page.dart';
+import 'package:skore_hodimlar/features/tasks/presentation/pages/task_stats_page.dart';
 
 /// §3 Hisobotlar — entry point to every report screen.
 class RahbarReportsHubPage extends StatelessWidget {
@@ -16,6 +18,12 @@ class RahbarReportsHubPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = <_ReportEntry>[
+      _ReportEntry(
+        context.tr('task_stats_title'),
+        context.tr('task_stats_desc'),
+        Icons.bar_chart_rounded,
+        const TaskStatsPage(),
+      ),
       _ReportEntry(
         context.tr('rahbar_report_kundalik_title'),
         context.tr('rahbar_report_kundalik_desc'),
@@ -49,10 +57,10 @@ class RahbarReportsHubPage extends StatelessWidget {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         title: Text(context.tr('rahbar_nav_reports')),
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         automaticallyImplyLeading: false,
       ),
@@ -73,8 +81,8 @@ class RahbarReportsHubPage extends StatelessWidget {
                 vertical: 6,
               ),
               leading: CircleAvatar(
-                backgroundColor: const Color(0xFF0D6E6E).withValues(alpha: 0.1),
-                child: Icon(e.icon, color: const Color(0xFF0D6E6E)),
+                backgroundColor: context.colors.primary.withValues(alpha: 0.1),
+                child: Icon(e.icon, color: context.colors.primary),
               ),
               title: Text(
                 e.title,

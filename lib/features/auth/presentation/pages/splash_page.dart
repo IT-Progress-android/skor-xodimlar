@@ -64,7 +64,7 @@ class _SplashPageState extends State<SplashPage>
       unawaited(GpsLiveTrackerService.instance.startTracking(phone: phone));
       if (mounted) {
         unawaited(
-          LanguageSyncService.fetchAndApplyFromBackend(
+          LanguageSyncService.reconcileWithBackend(
             context.read<LanguageCubit>(),
           ),
         );
@@ -89,7 +89,7 @@ class _SplashPageState extends State<SplashPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.colors.surface,
       body: Stack(
         alignment: Alignment.center,
         children: [
@@ -102,7 +102,7 @@ class _SplashPageState extends State<SplashPage>
               height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.primary.withValues(alpha: 0.035),
+                color: context.colors.primary.withValues(alpha: 0.035),
               ),
             ),
           ),
@@ -115,7 +115,7 @@ class _SplashPageState extends State<SplashPage>
               height: 260,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.accent.withValues(alpha: 0.035),
+                color: context.colors.accent.withValues(alpha: 0.035),
               ),
             ),
           ),
@@ -152,7 +152,7 @@ class _SplashPageState extends State<SplashPage>
                   context.tr('splash_tagline'),
                   style: GoogleFonts.poppins(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: context.colors.textSecondary,
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.8,
                   ),
@@ -164,7 +164,7 @@ class _SplashPageState extends State<SplashPage>
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.primary.withValues(alpha: 0.6),
+                      context.colors.primary.withValues(alpha: 0.6),
                     ),
                   ),
                 ),

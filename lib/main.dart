@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -8,13 +11,17 @@ import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_language.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/localization/cubit/language_cubit.dart';
-import 'package:skore_hodimlar/core/localization/cubit/language_state.dart';
+import 'package:skore_hodimlar/core/security/app_lock_gate.dart';
+import 'package:skore_hodimlar/core/security/app_lock_service.dart';
+import 'package:skore_hodimlar/core/services/app_update_service.dart';
 import 'package:skore_hodimlar/core/services/auth_token_store.dart';
 import 'package:skore_hodimlar/core/services/fcm_service.dart';
 import 'package:skore_hodimlar/core/services/gps_live_tracker_service.dart';
 import 'package:skore_hodimlar/core/services/network_connectivity_service.dart';
 import 'package:skore_hodimlar/core/services/notification_storage_service.dart';
 import 'package:skore_hodimlar/core/theme/app_theme.dart';
+import 'package:skore_hodimlar/core/theme/theme_cubit.dart';
+import 'package:skore_hodimlar/core/widgets/app_update_gate.dart';
 import 'package:skore_hodimlar/core/widgets/global_offline_banner.dart';
 import 'package:skore_hodimlar/features/applications/presentation/bloc/ariza_bloc.dart';
 import 'package:skore_hodimlar/features/attendance/presentation/bloc/attendance_bloc.dart';
@@ -29,6 +36,9 @@ import 'package:yandex_mapkit/yandex_mapkit.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // UI (selfie camera, slide-to-check-in, bottom nav) is designed for
+  // portrait only; landscape on short phones squeezes and overflows it.
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // FCM/GPS xizmatlari LanguageCubit qurilishidan OLDIN, widget daraxtisiz
@@ -39,13 +49,26 @@ void main() async {
     AppLanguage.fromCode(prefs.getString(LanguageCubit.prefKey)),
   );
 
-  await FcmService.init();
+  // FCM ilova ochilishini KUTMAYDI: ruxsat dialogi, token olish va serverga
+  // yozish tarmoqqa bog'liq. Firebase ro'yxatdan o'tolmagan telefonda
+  // (`FCM Registration failed`) bular uzoq qotib, ilova ruxsatdan keyin
+  // ochilmay qolardi. Token keyinroq `onTokenRefresh` va bosh sahifada
+  // qayta yoziladi.
+  unawaited(FcmService.init());
   await NotificationStorageService.initialize();
   // Saqlangan xodim tokenini xotiraga yuklaymiz — DioClient'dagi
   // interceptor uni sinxron o'qiydi, shuning uchun DI'dan oldin.
   await AuthTokenStore.instance.load();
   await initDependencies();
-  AndroidYandexMap.useAndroidViewSurface = true;
+  // Ilova qulfi (PIN / barmoq izi): saqlangan holat ilova chizilishidan
+  // oldin o'qiladi — birinchi kadrdayoq qulf ko'rinsin.
+  await AppLockService.instance.init(prefs);
+  // Majburiy yangilanish talabi saqlangan bo'lsa — birinchi kadrdayoq
+  // yangilash sahifasi (internetsiz ochilganda ham).
+  await AppUpdateService.restoreForcedUpdate(prefs);
+  // Use Texture Layer Hybrid Composition (AndroidView) instead of initExpensiveAndroidView
+  // to avoid SurfaceFlinger + Flutter raster thread synchronization stalls during map panning.
+  AndroidYandexMap.useAndroidViewSurface = false;
 
   // Internet aloqasini kuzatish xizmatini ishga tushiramiz
   NetworkConnectivityService.instance.init();
@@ -64,6 +87,7 @@ class SkoreHodimlarApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => sl<LanguageCubit>()),
+        BlocProvider(create: (_) => sl<ThemeCubit>()),
         BlocProvider(create: (_) => sl<AuthBloc>()),
         BlocProvider(create: (_) => sl<AttendanceBloc>()),
         BlocProvider(create: (_) => sl<FaceVerifyBloc>()),
@@ -72,11 +96,15 @@ class SkoreHodimlarApp extends StatelessWidget {
         BlocProvider(create: (_) => sl<LookupBloc>()),
         BlocProvider(create: (_) => sl<RahbarBloc>()),
       ],
-      child: BlocBuilder<LanguageCubit, LanguageState>(
-        builder: (context, langState) {
+      child: Builder(
+        builder: (context) {
+          final langState = context.watch<LanguageCubit>().state;
+          final themeMode = context.watch<ThemeCubit>().state;
           return MaterialApp.router(
             title: 'Skor Xodimlar',
             theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeMode,
             routerConfig: AppRouter.router,
             debugShowCheckedModeBanner: false,
             locale: langState.locale,
@@ -91,17 +119,31 @@ class SkoreHodimlarApp extends StatelessWidget {
               return LayoutBuilder(
                 builder: (context, constraints) {
                   final mediaQuery = MediaQuery.of(context);
-                  return MediaQuery(
-                    data: mediaQuery.copyWith(
-                      textScaler: mediaQuery.textScaler.clamp(
-                        minScaleFactor: 0.85,
-                        maxScaleFactor: 1.15,
-                      ),
+                  // Screens without an AppBar still need status-bar icons
+                  // that are readable on the current background.
+                  return AnnotatedRegion<SystemUiOverlayStyle>(
+                    value: AppTheme.overlayStyleFor(
+                      Theme.of(context).brightness,
                     ),
-                    // WithForegroundTask wraps the app to keep foreground service alive
-                    child: WithForegroundTask(
-                      child: GlobalOfflineBanner(
-                        child: child ?? const SizedBox.shrink(),
+                    child: MediaQuery(
+                      data: mediaQuery.copyWith(
+                        textScaler: mediaQuery.textScaler.clamp(
+                          minScaleFactor: 0.85,
+                          maxScaleFactor: 1.15,
+                        ),
+                      ),
+                      // WithForegroundTask wraps the app to keep foreground service alive
+                      // Majburiy yangilanishda ilova o'rniga yangilash sahifasi.
+                      child: AppUpdateGate(
+                        child: WithForegroundTask(
+                          child: AppLockGate(
+                            child: GlobalOfflineBanner(
+                              child: _PhoneWidthFrame(
+                                child: child ?? const SizedBox.shrink(),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   );
@@ -110,6 +152,39 @@ class SkoreHodimlarApp extends StatelessWidget {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+/// Screens are designed for phones. On tablets / unfolded foldables the
+/// content is centered at a phone-like max width instead of stretching.
+class _PhoneWidthFrame extends StatelessWidget {
+  const _PhoneWidthFrame({required this.child});
+
+  static const double _maxWidth = 600;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    if (mediaQuery.size.width <= _maxWidth) return child;
+
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Center(
+        child: SizedBox(
+          width: _maxWidth,
+          // Descendants reading MediaQuery.size must see the framed width,
+          // otherwise size-based layouts (sheets, camera circle) misjudge.
+          child: MediaQuery(
+            data: mediaQuery.copyWith(
+              size: Size(_maxWidth, mediaQuery.size.height),
+            ),
+            child: child,
+          ),
+        ),
       ),
     );
   }

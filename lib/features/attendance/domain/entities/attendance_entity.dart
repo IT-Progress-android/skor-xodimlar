@@ -53,6 +53,12 @@ class AttendanceSessionEntity extends Equatable {
   final int rawOut;
   final String? note;
 
+  /// Chiqish kamerasi tasdiqlamagan — server sessiyani o'zi yopgan
+  /// (`auto_sabab`: `smena_tugadi` / `yarim_tun`). Bunday sessiyadagi
+  /// `checkOut` haqiqiy chiqish vaqti emas.
+  final bool autoKetdi;
+  final String? autoSabab;
+
   const AttendanceSessionEntity({
     this.checkIn,
     this.checkOut,
@@ -65,6 +71,8 @@ class AttendanceSessionEntity extends Equatable {
     this.rawIn = 1,
     this.rawOut = 1,
     this.note,
+    this.autoKetdi = false,
+    this.autoSabab,
   });
 
   @override
@@ -76,6 +84,8 @@ class AttendanceSessionEntity extends Equatable {
     deviceIn,
     deviceOut,
     note,
+    autoKetdi,
+    autoSabab,
   ];
 }
 
@@ -137,6 +147,14 @@ class TodayAttendanceEntity extends Equatable {
   /// Rahbar tasdig'ini kutayotgan so'rovlar (yuz tekshiruvisiz belgilangan).
   final List<PendingAttendanceRequestEntity> pendingRequests;
 
+  /// Joriy ochiq sessiya avtomatik yopiladigan vaqt (server, ISO-8601).
+  /// Asosiy smenada — ish vaqti tugashi, qo'shimcha ishda — yarim tun.
+  /// GPS kuzatuvi shu vaqtdan keyin telefonning o'zida ham to'xtaydi.
+  final String? autoKetdiAt;
+
+  /// Ochiq sessiya qo'shimcha ish (smena tugagandan keyin qayta "Keldim").
+  final bool overtime;
+
   const TodayAttendanceEntity({
     required this.date,
     required this.staffName,
@@ -154,6 +172,8 @@ class TodayAttendanceEntity extends Equatable {
     this.sessions = const [],
     this.events = const [],
     this.pendingRequests = const [],
+    this.autoKetdiAt,
+    this.overtime = false,
   });
 
   @override
@@ -165,6 +185,8 @@ class TodayAttendanceEntity extends Equatable {
     next,
     counts,
     pendingRequests,
+    autoKetdiAt,
+    overtime,
     sessions,
     events,
   ];

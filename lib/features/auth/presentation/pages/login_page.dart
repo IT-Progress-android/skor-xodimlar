@@ -17,6 +17,7 @@ import 'package:skore_hodimlar/core/services/gps_live_tracker_service.dart';
 import 'package:skore_hodimlar/core/services/language_sync_service.dart';
 import 'package:skore_hodimlar/core/utils/phone_formatter.dart';
 import 'package:skore_hodimlar/core/widgets/language_picker_bottom_sheet.dart';
+import 'package:skore_hodimlar/core/widgets/network_diagnostics_sheet.dart';
 import 'package:skore_hodimlar/core/widgets/skor_logo_widget.dart';
 import 'package:skore_hodimlar/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/bloc/rahbar_bloc.dart';
@@ -137,15 +138,126 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
-  void _showSnackBar(String message, {bool isError = true}) {
+  void _showSnackBar(
+    String message, {
+    bool isError = true,
+    bool offerDiagnostics = false,
+  }) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        action: offerDiagnostics
+            ? SnackBarAction(
+                label: context.tr('diag_details'),
+                textColor: Colors.white,
+                onPressed: () => NetworkDiagnosticsSheet.show(context),
+              )
+            : null,
+        duration: Duration(seconds: offerDiagnostics ? 8 : 4),
         content: Text(
           message,
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            fontSize: 12.5,
+          ),
         ),
-        backgroundColor: isError ? AppColors.error : AppColors.primary,
+        backgroundColor: isError
+            ? context.colors.error
+            : context.colors.primary,
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    if (offerDiagnostics &&
+        (message.contains('🕒 Vaqt:') || message.contains('🌐 Tashqi IP:'))) {
+      _showSupportErrorDialog(message);
+    }
+  }
+
+  void _showSupportErrorDialog(String diagnosticReport) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.colors.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(
+              Icons.bug_report_rounded,
+              color: context.colors.error,
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Login xatoligi (Support uchun)',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: context.colors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Container(
+          width: double.maxFinite,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: context.colors.surfaceVariant,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: context.colors.divider),
+          ),
+          child: SelectableText(
+            diagnosticReport,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 12,
+              height: 1.45,
+              color: context.colors.textPrimary,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              NetworkDiagnosticsSheet.show(context);
+            },
+            icon: const Icon(Icons.network_check_rounded, size: 18),
+            label: Text(
+              context.tr('diag_details'),
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+            ),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.colors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: diagnosticReport));
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Xatolik ma\'lumotlari nusxalandi!',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: context.colors.primary,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            icon: const Icon(Icons.copy_rounded, size: 17),
+            label: Text(
+              'Nusxalash',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -158,7 +270,7 @@ class _LoginPageState extends State<LoginPage>
     final code = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
@@ -166,7 +278,7 @@ class _LoginPageState extends State<LoginPage>
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
             fontSize: 18,
-            color: AppColors.textPrimary,
+            color: context.colors.textPrimary,
           ),
         ),
         content: Column(
@@ -177,7 +289,7 @@ class _LoginPageState extends State<LoginPage>
               serverMessage,
               style: GoogleFonts.outfit(
                 fontSize: 13.5,
-                color: AppColors.textSecondary,
+                color: context.colors.textSecondary,
                 height: 1.4,
               ),
             ),
@@ -189,13 +301,13 @@ class _LoginPageState extends State<LoginPage>
               style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
               decoration: InputDecoration(
                 hintText: context.tr('login_person_code_hint'),
-                prefixIcon: const Icon(
+                prefixIcon: Icon(
                   Icons.badge_rounded,
-                  color: AppColors.primary,
+                  color: context.colors.primary,
                   size: 20,
                 ),
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
+                fillColor: context.colors.surfaceVariant,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -206,7 +318,7 @@ class _LoginPageState extends State<LoginPage>
               context.tr('login_person_code_note'),
               style: GoogleFonts.outfit(
                 fontSize: 12,
-                color: AppColors.textHint,
+                color: context.colors.textHint,
               ),
             ),
           ],
@@ -216,12 +328,12 @@ class _LoginPageState extends State<LoginPage>
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               context.tr('cancel'),
-              style: GoogleFonts.outfit(color: Colors.grey.shade700),
+              style: GoogleFonts.outfit(color: context.colors.textSecondary),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: context.colors.primary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -250,7 +362,7 @@ class _LoginPageState extends State<LoginPage>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.colors.surface,
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.all(24),
@@ -261,7 +373,7 @@ class _LoginPageState extends State<LoginPage>
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.divider,
+                  color: context.colors.divider,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -269,12 +381,12 @@ class _LoginPageState extends State<LoginPage>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: context.colors.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.headset_mic_rounded,
-                  color: AppColors.primary,
+                  color: context.colors.primary,
                   size: 36,
                 ),
               ),
@@ -284,7 +396,7 @@ class _LoginPageState extends State<LoginPage>
                 style: GoogleFonts.outfit(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  color: context.colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -293,7 +405,7 @@ class _LoginPageState extends State<LoginPage>
                 textAlign: TextAlign.center,
                 style: GoogleFonts.outfit(
                   fontSize: 14,
-                  color: AppColors.textSecondary,
+                  color: context.colors.textSecondary,
                 ),
               ),
               const SizedBox(height: 24),
@@ -319,18 +431,18 @@ class _LoginPageState extends State<LoginPage>
                     horizontal: 20,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
+                    color: context.colors.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.3),
+                      color: context.colors.primary.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.phone_in_talk_rounded,
-                        color: AppColors.primary,
+                        color: context.colors.primary,
                       ),
                       const SizedBox(width: 12),
                       Text(
@@ -338,7 +450,7 @@ class _LoginPageState extends State<LoginPage>
                         style: GoogleFonts.outfit(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                          color: context.colors.primary,
                         ),
                       ),
                     ],
@@ -368,14 +480,14 @@ class _LoginPageState extends State<LoginPage>
                 staffId: state.staff.id,
               );
               GpsLiveTrackerService.instance.startTracking(phone: state.phone);
-              LanguageSyncService.fetchAndApplyFromBackend(
+              LanguageSyncService.reconcileWithBackend(
                 context.read<LanguageCubit>(),
               );
               context.go('/');
             } else if (state is AuthNeedsPersonCode) {
               _askPersonCode(state.phone, state.message);
             } else if (state is AuthFailure) {
-              _showSnackBar(state.message);
+              _showSnackBar(state.message, offerDiagnostics: true);
             }
           },
         ),
@@ -383,9 +495,10 @@ class _LoginPageState extends State<LoginPage>
           listener: (context, state) {
             if (state is RahbarAuthSuccess) {
               FcmService.syncUserRole();
+              FcmService.registerRahbarTokenOnBackend();
               context.go('/rahbar');
             } else if (state is RahbarError) {
-              _showSnackBar(state.message);
+              _showSnackBar(state.message, offerDiagnostics: true);
             }
           },
         ),
@@ -395,7 +508,7 @@ class _LoginPageState extends State<LoginPage>
           final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
           return Scaffold(
-            backgroundColor: AppColors.background,
+            backgroundColor: context.colors.background,
             resizeToAvoidBottomInset: true,
             body: SafeArea(
               child: Stack(
@@ -439,7 +552,7 @@ class _LoginPageState extends State<LoginPage>
                               constraints: const BoxConstraints(maxWidth: 420),
                               padding: const EdgeInsets.all(24),
                               decoration: BoxDecoration(
-                                color: AppColors.surface,
+                                color: context.colors.surface,
                                 borderRadius: BorderRadius.circular(28),
                                 boxShadow: [
                                   BoxShadow(
@@ -459,7 +572,7 @@ class _LoginPageState extends State<LoginPage>
                                     style: GoogleFonts.outfit(
                                       fontSize: 24,
                                       fontWeight: FontWeight.bold,
-                                      color: AppColors.textPrimary,
+                                      color: context.colors.textPrimary,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -468,7 +581,7 @@ class _LoginPageState extends State<LoginPage>
                                     textAlign: TextAlign.center,
                                     style: GoogleFonts.outfit(
                                       fontSize: 13.5,
-                                      color: AppColors.textSecondary,
+                                      color: context.colors.textSecondary,
                                     ),
                                   ),
                                   const SizedBox(height: 18),
@@ -521,7 +634,7 @@ class _LoginPageState extends State<LoginPage>
                                         TextSpan(
                                           text: context.tr('login_no_account'),
                                           style: GoogleFonts.outfit(
-                                            color: AppColors.textSecondary,
+                                            color: context.colors.textSecondary,
                                             fontSize: 13,
                                           ),
                                           children: [
@@ -530,7 +643,7 @@ class _LoginPageState extends State<LoginPage>
                                                 'login_contact_us',
                                               ),
                                               style: GoogleFonts.outfit(
-                                                color: AppColors.accent,
+                                                color: context.colors.accent,
                                                 fontWeight: FontWeight.bold,
                                                 decoration:
                                                     TextDecoration.underline,
@@ -554,9 +667,9 @@ class _LoginPageState extends State<LoginPage>
                     right: 4,
                     child: IconButton(
                       onPressed: () => LanguagePickerBottomSheet.show(context),
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.language_rounded,
-                        color: AppColors.primary,
+                        color: context.colors.primary,
                       ),
                       tooltip: context.tr('app_language'),
                     ),
@@ -580,7 +693,7 @@ class _LoginPageState extends State<LoginPage>
           style: GoogleFonts.outfit(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
+            color: context.colors.textPrimary,
           ),
         ),
         const SizedBox(height: 8),
@@ -603,7 +716,7 @@ class _LoginPageState extends State<LoginPage>
           style: GoogleFonts.outfit(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+            color: context.colors.textPrimary,
             fontFeatures: const [
               FontFeature.liningFigures(),
               FontFeature.tabularFigures(),
@@ -612,7 +725,7 @@ class _LoginPageState extends State<LoginPage>
           decoration: InputDecoration(
             hintText: '+998 90 123 45 67',
             hintStyle: GoogleFonts.outfit(
-              color: AppColors.textHint,
+              color: context.colors.textHint,
               fontSize: 16,
               fontWeight: FontWeight.w500,
               fontFeatures: const [
@@ -620,24 +733,24 @@ class _LoginPageState extends State<LoginPage>
                 FontFeature.tabularFigures(),
               ],
             ),
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.phone_android_rounded,
-              color: AppColors.primary,
+              color: context.colors.primary,
               size: 22,
             ),
             filled: true,
-            fillColor: const Color(0xFFF8FAFC),
+            fillColor: context.colors.surfaceVariant,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppColors.divider),
+              borderSide: BorderSide(color: context.colors.divider),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppColors.divider),
+              borderSide: BorderSide(color: context.colors.divider),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              borderSide: BorderSide(color: context.colors.primary, width: 2),
             ),
           ),
         ),
@@ -650,7 +763,7 @@ class _LoginPageState extends State<LoginPage>
               child: ElevatedButton(
                 onPressed: isLoading ? null : _onStaffLogin,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: context.colors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -691,7 +804,7 @@ class _LoginPageState extends State<LoginPage>
           style: GoogleFonts.outfit(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
+            color: context.colors.textPrimary,
           ),
         ),
         const SizedBox(height: 6),
@@ -701,36 +814,36 @@ class _LoginPageState extends State<LoginPage>
           style: GoogleFonts.outfit(
             fontSize: 14.5,
             fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+            color: context.colors.textPrimary,
           ),
           decoration: InputDecoration(
             hintText: context.tr('login_admin_login_hint'),
             hintStyle: GoogleFonts.outfit(
-              color: AppColors.textHint,
+              color: context.colors.textHint,
               fontSize: 13.5,
             ),
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.admin_panel_settings_rounded,
-              color: AppColors.primary,
+              color: context.colors.primary,
               size: 20,
             ),
             filled: true,
-            fillColor: const Color(0xFFF8FAFC),
+            fillColor: context.colors.surfaceVariant,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
               vertical: 12,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.divider),
+              borderSide: BorderSide(color: context.colors.divider),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.divider),
+              borderSide: BorderSide(color: context.colors.divider),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              borderSide: BorderSide(color: context.colors.primary, width: 2),
             ),
           ),
         ),
@@ -740,7 +853,7 @@ class _LoginPageState extends State<LoginPage>
           style: GoogleFonts.outfit(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
+            color: context.colors.textPrimary,
           ),
         ),
         const SizedBox(height: 6),
@@ -751,17 +864,17 @@ class _LoginPageState extends State<LoginPage>
           style: GoogleFonts.outfit(
             fontSize: 14.5,
             fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+            color: context.colors.textPrimary,
           ),
           decoration: InputDecoration(
             hintText: '••••••••',
             hintStyle: GoogleFonts.outfit(
-              color: AppColors.textHint,
+              color: context.colors.textHint,
               fontSize: 13.5,
             ),
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.lock_rounded,
-              color: AppColors.primary,
+              color: context.colors.primary,
               size: 20,
             ),
             suffixIcon: IconButton(
@@ -769,29 +882,29 @@ class _LoginPageState extends State<LoginPage>
                 _obscurePassword
                     ? Icons.visibility_off_rounded
                     : Icons.visibility_rounded,
-                color: Colors.grey,
+                color: context.colors.textHint,
                 size: 20,
               ),
               onPressed: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
             ),
             filled: true,
-            fillColor: const Color(0xFFF8FAFC),
+            fillColor: context.colors.surfaceVariant,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
               vertical: 12,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.divider),
+              borderSide: BorderSide(color: context.colors.divider),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.divider),
+              borderSide: BorderSide(color: context.colors.divider),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+              borderSide: BorderSide(color: context.colors.primary, width: 2),
             ),
           ),
         ),
@@ -804,7 +917,7 @@ class _LoginPageState extends State<LoginPage>
               child: ElevatedButton(
                 onPressed: isLoading ? null : _onAdminLogin,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: context.colors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -842,9 +955,9 @@ class _LoginPageState extends State<LoginPage>
       height: 52,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: context.colors.surfaceStrong,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+        border: Border.all(color: context.colors.border, width: 1.2),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -865,7 +978,7 @@ class _LoginPageState extends State<LoginPage>
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: isStaff
-                          ? [AppColors.primary, const Color(0xFF139797)]
+                          ? [context.colors.primary, const Color(0xFF139797)]
                           : [const Color(0xFF0F766E), const Color(0xFF085454)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -873,7 +986,7 @@ class _LoginPageState extends State<LoginPage>
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.35),
+                        color: context.colors.primary.withValues(alpha: 0.35),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -905,7 +1018,7 @@ class _LoginPageState extends State<LoginPage>
                                 size: 18,
                                 color: isStaff
                                     ? Colors.white
-                                    : AppColors.textSecondary,
+                                    : context.colors.textSecondary,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -918,7 +1031,7 @@ class _LoginPageState extends State<LoginPage>
                                 fontSize: 14,
                                 color: isStaff
                                     ? Colors.white
-                                    : AppColors.textSecondary,
+                                    : context.colors.textSecondary,
                                 letterSpacing: 0.2,
                               ),
                               child: Text(context.tr('login_role_staff')),
@@ -957,7 +1070,7 @@ class _LoginPageState extends State<LoginPage>
                                 size: 18,
                                 color: !isStaff
                                     ? Colors.white
-                                    : AppColors.textSecondary,
+                                    : context.colors.textSecondary,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -970,7 +1083,7 @@ class _LoginPageState extends State<LoginPage>
                                 fontSize: 14,
                                 color: !isStaff
                                     ? Colors.white
-                                    : AppColors.textSecondary,
+                                    : context.colors.textSecondary,
                                 letterSpacing: 0.2,
                               ),
                               child: Text(context.tr('login_role_admin')),

@@ -8,9 +8,7 @@ class ArizaTuriModel extends ArizaTuriEntity {
   factory ArizaTuriModel.fromJson(Map<String, dynamic> json) {
     return ArizaTuriModel(
       kalit: json['kalit']?.toString() ?? '',
-      nomi: BackendTextMapper.translateArizaTuriNomi(
-        json['nomi']?.toString() ?? '',
-      ),
+      nomi: json['nomi']?.toString() ?? '',
     );
   }
 }
@@ -52,9 +50,8 @@ class ArizaModel extends ArizaEntity {
     return ArizaModel(
       id: (json['id'] as num?)?.toInt() ?? 0,
       turi: json['turi']?.toString() ?? '',
-      turiNomi: BackendTextMapper.translateArizaTuriNomi(
-        json['turi_nomi']?.toString() ?? (json['turi']?.toString() ?? ''),
-      ),
+      turiNomi:
+          json['turi_nomi']?.toString() ?? (json['turi']?.toString() ?? ''),
       fromDate: json['from_date']?.toString() ?? '',
       toDate:
           json['to_date']?.toString() ?? (json['from_date']?.toString() ?? ''),
@@ -63,8 +60,8 @@ class ArizaModel extends ArizaEntity {
       status: json['status']?.toString() ?? 'kutilmoqda',
       statusNomi: BackendTextMapper.translateArizaStatus(
         json['status_nomi']?.toString() ??
-        json['status']?.toString() ??
-        AppLocalizations.trStatic('status_kutilmoqda'),
+            json['status']?.toString() ??
+            AppLocalizations.trStatic('status_kutilmoqda'),
       ),
       reviewIzoh: json['review_izoh']?.toString(),
       yuborilgan: json['yuborilgan']?.toString() ?? '',

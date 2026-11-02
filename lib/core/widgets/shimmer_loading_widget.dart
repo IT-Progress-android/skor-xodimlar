@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 
 class ShimmerSkeleton extends StatelessWidget {
   final double width;
@@ -20,8 +21,8 @@ class ShimmerSkeleton extends StatelessWidget {
     return Container(
       margin: margin,
       child: Shimmer.fromColors(
-        baseColor: const Color(0xFFE5E7EB),
-        highlightColor: const Color(0xFFF3F4F6),
+        baseColor: context.colors.shimmerBase,
+        highlightColor: context.colors.shimmerHighlight,
         child: Container(
           width: width,
           height: height,

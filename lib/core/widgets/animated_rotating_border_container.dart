@@ -1,11 +1,15 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 
 class AnimatedRotatingBorderContainer extends StatefulWidget {
   final Widget child;
   final double borderRadius;
   final double borderWidth;
-  final List<Color> gradientColors;
+
+  /// Defaults to the brand teal sweep of the current theme.
+  final List<Color>? gradientColors;
   final Duration duration;
   final EdgeInsetsGeometry? margin;
 
@@ -14,13 +18,7 @@ class AnimatedRotatingBorderContainer extends StatefulWidget {
     required this.child,
     this.borderRadius = 16,
     this.borderWidth = 2.0,
-    this.gradientColors = const [
-      Color(0xFF0D6E6E),
-      Color(0xFF139797),
-      Color(0xFF26BBAA),
-      Color(0xFF084B4B),
-      Color(0xFF0D6E6E),
-    ],
+    this.gradientColors,
     this.duration = const Duration(seconds: 4),
     this.margin,
   });
@@ -50,6 +48,16 @@ class _AnimatedRotatingBorderContainerState
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final gradientColors =
+        widget.gradientColors ??
+        [
+          c.primary,
+          const Color(0xFF139797),
+          const Color(0xFF26BBAA),
+          const Color(0xFF084B4B),
+          c.primary,
+        ];
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -59,12 +67,12 @@ class _AnimatedRotatingBorderContainerState
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(widget.borderRadius),
             gradient: SweepGradient(
-              colors: widget.gradientColors,
+              colors: gradientColors,
               transform: GradientRotation(_controller.value * 2 * math.pi),
             ),
             boxShadow: [
               BoxShadow(
-                color: widget.gradientColors.first.withValues(alpha: 0.12),
+                color: gradientColors.first.withValues(alpha: 0.12),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -72,7 +80,7 @@ class _AnimatedRotatingBorderContainerState
           ),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: c.surface,
               borderRadius: BorderRadius.circular(
                 widget.borderRadius - widget.borderWidth,
               ),

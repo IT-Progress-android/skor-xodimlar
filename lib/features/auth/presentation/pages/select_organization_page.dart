@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/localization/cubit/language_cubit.dart';
 import 'package:skore_hodimlar/core/services/fcm_service.dart';
@@ -31,18 +32,18 @@ class _SelectOrganizationPageState extends State<SelectOrganizationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: context.colors.surfaceVariant,
       appBar: AppBar(
         title: Text(
           context.tr('select_org_title'),
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
             fontSize: 18,
-            color: const Color(0xFF0F172A),
+            color: context.colors.textPrimary,
           ),
         ),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
@@ -55,7 +56,7 @@ class _SelectOrganizationPageState extends State<SelectOrganizationPage> {
               phone: state.phone,
               staffId: state.staff.id,
             );
-            LanguageSyncService.fetchAndApplyFromBackend(
+            LanguageSyncService.reconcileWithBackend(
               context.read<LanguageCubit>(),
             );
             context.go('/');
@@ -63,8 +64,8 @@ class _SelectOrganizationPageState extends State<SelectOrganizationPage> {
         },
         builder: (context, state) {
           if (state is! AuthMultiple) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF0D6E6E)),
+            return Center(
+              child: CircularProgressIndicator(color: context.colors.primary),
             );
           }
 
@@ -89,12 +90,12 @@ class _SelectOrganizationPageState extends State<SelectOrganizationPage> {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 14),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: context.colors.surface,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
                           color: isSelected
-                              ? const Color(0xFF0D6E6E)
-                              : const Color(0xFFE2E8F0),
+                              ? context.colors.primary
+                              : context.colors.border,
                           width: isSelected ? 2 : 1,
                         ),
                         boxShadow: [
@@ -128,9 +129,9 @@ class _SelectOrganizationPageState extends State<SelectOrganizationPage> {
                                     ).withValues(alpha: 0.1),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.business_rounded,
-                                    color: Color(0xFF0D6E6E),
+                                    color: context.colors.primary,
                                     size: 24,
                                   ),
                                 ),
@@ -145,7 +146,7 @@ class _SelectOrganizationPageState extends State<SelectOrganizationPage> {
                                         style: GoogleFonts.outfit(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 16,
-                                          color: const Color(0xFF0F172A),
+                                          color: context.colors.textPrimary,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -168,7 +169,8 @@ class _SelectOrganizationPageState extends State<SelectOrganizationPage> {
                                           child: Text(
                                             staff.name,
                                             style: GoogleFonts.outfit(
-                                              color: const Color(0xFF64748B),
+                                              color:
+                                                  context.colors.textSecondary,
                                               fontSize: 12.5,
                                             ),
                                           ),
@@ -184,8 +186,8 @@ class _SelectOrganizationPageState extends State<SelectOrganizationPage> {
                                     shape: BoxShape.circle,
                                     border: Border.all(
                                       color: isSelected
-                                          ? const Color(0xFF0D6E6E)
-                                          : const Color(0xFFCBD5E1),
+                                          ? context.colors.primary
+                                          : context.colors.textHint,
                                       width: 2,
                                     ),
                                   ),
@@ -194,9 +196,9 @@ class _SelectOrganizationPageState extends State<SelectOrganizationPage> {
                                           child: Container(
                                             width: 12,
                                             height: 12,
-                                            decoration: const BoxDecoration(
+                                            decoration: BoxDecoration(
                                               shape: BoxShape.circle,
-                                              color: Color(0xFF0D6E6E),
+                                              color: context.colors.primary,
                                             ),
                                           ),
                                         )
@@ -213,8 +215,8 @@ class _SelectOrganizationPageState extends State<SelectOrganizationPage> {
               ),
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: context.colors.surface,
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black12,
@@ -228,7 +230,7 @@ class _SelectOrganizationPageState extends State<SelectOrganizationPage> {
                   height: 52,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D6E6E),
+                      backgroundColor: context.colors.primary,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(

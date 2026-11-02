@@ -2,7 +2,6 @@ import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/features/attendance/domain/entities/attendance_entity.dart';
 
-
 class CheckTimeModel extends CheckTimeEntity {
   const CheckTimeModel({super.time, super.device});
 
@@ -56,6 +55,8 @@ class TodayAttendanceModel extends TodayAttendanceEntity {
     super.sessions,
     super.events,
     super.pendingRequests,
+    super.autoKetdiAt,
+    super.overtime,
   });
 
   factory TodayAttendanceModel.fromJson(Map<String, dynamic> json) {
@@ -191,6 +192,9 @@ class TodayAttendanceModel extends TodayAttendanceEntity {
       sessions: parsedSessions,
       events: parsedEvents,
       pendingRequests: parsedPending,
+      autoKetdiAt: (today['auto_ketdi_at'] ?? json['auto_ketdi_at'])
+          ?.toString(),
+      overtime: (today['overtime'] ?? json['overtime']) == true,
     );
   }
 }
@@ -207,9 +211,7 @@ class ArizaInfoModel extends ArizaInfoEntity {
     return ArizaInfoModel(
       id: (json['id'] as num?)?.toInt() ?? 0,
       turi: (json['turi'] ?? '').toString(),
-      nomi: BackendTextMapper.translateArizaTuriNomi(
-        (json['nomi'] ?? json['turi_nomi'] ?? '').toString(),
-      ),
+      nomi: (json['nomi'] ?? json['turi_nomi'] ?? '').toString(),
       izoh: json['izoh']?.toString(),
     );
   }
@@ -228,6 +230,8 @@ class AttendanceSessionModel extends AttendanceSessionEntity {
     super.rawIn,
     super.rawOut,
     super.note,
+    super.autoKetdi,
+    super.autoSabab,
   });
 
   factory AttendanceSessionModel.fromJson(Map<String, dynamic> json) {
@@ -243,6 +247,8 @@ class AttendanceSessionModel extends AttendanceSessionEntity {
       rawIn: (json['raw_in'] as num?)?.toInt() ?? 1,
       rawOut: (json['raw_out'] as num?)?.toInt() ?? 1,
       note: json['note']?.toString(),
+      autoKetdi: json['auto_ketdi'] == true,
+      autoSabab: json['auto_sabab']?.toString(),
     );
   }
 }
@@ -347,7 +353,6 @@ class AttendanceReportModel extends AttendanceReportEntity {
                     : AppLocalizations.trStatic('status_kelmagan')))
             .toString();
     final statusStr = BackendTextMapper.translateStatus(rawStatus);
-
 
     ArizaInfoModel? arizaModel;
     if (json['ariza'] is Map) {

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/features/rahbar/data/datasources/rahbar_remote_datasource.dart';
+import 'package:skore_hodimlar/features/rahbar/presentation/widgets/rahbar_empty_state_widget.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/widgets/rahbar_report_view.dart';
 
 /// §3.4 Kunlik davomat — per-day totals with an attendance-% bar per day.
@@ -93,10 +95,13 @@ class _RahbarKunlikPageState extends State<RahbarKunlikPage> {
       }
     } catch (_) {}
 
-    final dateDisplay = dt != null ? DateFormat('dd.MM.yyyy').format(dt) : rawDate;
+    final dateDisplay = dt != null
+        ? DateFormat('dd.MM.yyyy').format(dt)
+        : rawDate;
 
     final weekdayRaw =
-        (k['hafta_kuni'] ?? k['weekday'] ?? k['kun_nomi'] ?? rawDate)?.toString();
+        (k['hafta_kuni'] ?? k['weekday'] ?? k['kun_nomi'] ?? rawDate)
+            ?.toString();
     final weekdayDisplay = BackendTextMapper.translateWeekday(weekdayRaw);
 
     if (weekdayDisplay != null && weekdayDisplay.isNotEmpty) {
@@ -108,10 +113,10 @@ class _RahbarKunlikPageState extends State<RahbarKunlikPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         title: Text(context.tr('rahbar_report_kunlik_title')),
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
       ),
       body: RahbarReportView(
@@ -122,11 +127,10 @@ class _RahbarKunlikPageState extends State<RahbarKunlikPage> {
         builder: (context, data) {
           final kunlar = (data['kunlar'] as List?) ?? const [];
           if (kunlar.isEmpty) {
-            return ListView(
-              children: [
-                const SizedBox(height: 120),
-                Center(child: Text(context.tr('rahbar_no_data_in_range'))),
-              ],
+            return RahbarEmptyStateWidget(
+              icon: Icons.event_busy_rounded,
+              title: context.tr('rahbar_no_data_in_range'),
+              refreshable: true,
             );
           }
           // Newest first.
@@ -141,16 +145,20 @@ class _RahbarKunlikPageState extends State<RahbarKunlikPage> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: context.colors.surface,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   context.tr('rahbar_kunlik_legend'),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.colors.textSecondary,
+                  ),
                 ),
               ),
               Expanded(
                 child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(12),
                   itemCount: list.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -171,8 +179,7 @@ class _RahbarKunlikPageState extends State<RahbarKunlikPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -180,17 +187,18 @@ class _RahbarKunlikPageState extends State<RahbarKunlikPage> {
                                     Icon(
                                       Icons.calendar_today_rounded,
                                       size: 14,
-                                      color: Colors.grey.shade700,
+                                      color: context.colors.textSecondary,
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
                                       dateLabel.isNotEmpty
                                           ? dateLabel
-                                          : (k['sana'] ?? k['date'] ?? '').toString(),
+                                          : (k['sana'] ?? k['date'] ?? '')
+                                                .toString(),
                                       style: GoogleFonts.outfit(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 13.5,
-                                        color: const Color(0xFF1E293B),
+                                        color: context.colors.textPrimary,
                                       ),
                                     ),
                                   ],
@@ -211,7 +219,7 @@ class _RahbarKunlikPageState extends State<RahbarKunlikPage> {
                               child: LinearProgressIndicator(
                                 value: (foiz / 100).clamp(0.0, 1.0),
                                 minHeight: 8,
-                                backgroundColor: Colors.grey.shade200,
+                                backgroundColor: context.colors.surfaceStrong,
                                 color: _color(foiz),
                               ),
                             ),
@@ -221,7 +229,7 @@ class _RahbarKunlikPageState extends State<RahbarKunlikPage> {
                                 Expanded(
                                   child: _StatItem(
                                     icon: Icons.check_circle_rounded,
-                                    color: const Color(0xFF16A34A),
+                                    color: context.colors.success,
                                     value:
                                         '${k['kelgan'] ?? 0}/${k['jami'] ?? 0}',
                                     label: context.tr('attendance_present'),
@@ -238,11 +246,9 @@ class _RahbarKunlikPageState extends State<RahbarKunlikPage> {
                                 Expanded(
                                   child: _StatItem(
                                     icon: Icons.assignment_late_rounded,
-                                    color: Colors.blueGrey,
+                                    color: context.colors.textSecondary,
                                     value: '${k['arizali'] ?? 0}',
-                                    label: context.tr(
-                                      'rahbar_on_leave_short',
-                                    ),
+                                    label: context.tr('rahbar_on_leave_short'),
                                   ),
                                 ),
                               ],
@@ -291,7 +297,10 @@ class _StatItem extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, color: context.colors.textSecondary),
+        ),
       ],
     );
   }

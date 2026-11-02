@@ -1,15 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/widgets/offline_info_bottom_sheet.dart';
+import 'package:skore_hodimlar/core/widgets/pull_to_refresh.dart';
 
 /// Sahifalar (Davomat tarixi, Arizalar, Bosh sahifa) ichida internet uzilishi
 /// tufayli ma'lumotlar yuklanmaganda ko'rsatiladigan zamonaviy inline / to'liq sahifali vidjet.
 class NoInternetView extends StatelessWidget {
   final String? title;
   final String? message;
-  final VoidCallback? onRetry;
+
+  /// Berilsa, sahifani pastga tortib qayta yuklash mumkin bo'ladi.
+  final FutureOr<void> Function()? onRetry;
   final bool isCompact;
 
   const NoInternetView({
@@ -22,6 +27,17 @@ class NoInternetView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final content = _content(context);
+    // Ixcham ko'rinish sahifa ichida turadi — yangilashni sahifaning o'zi
+    // bajaradi. To'liq ko'rinish esa o'zi pastga tortishni ushlaydi.
+    if (onRetry == null || isCompact) return content;
+    return RefreshableFill(
+      onRefresh: () => refreshWithMinDelay(onRetry!),
+      child: content,
+    );
+  }
+
+  Widget _content(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -34,11 +50,11 @@ class NoInternetView extends StatelessWidget {
               width: isCompact ? 56 : 76,
               height: isCompact ? 56 : 76,
               decoration: BoxDecoration(
-                color: const Color(0xFFFEE2E2),
+                color: context.colors.errorSoft,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFDC2626).withValues(alpha: 0.12),
+                    color: context.colors.error.withValues(alpha: 0.12),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),
@@ -46,7 +62,7 @@ class NoInternetView extends StatelessWidget {
               ),
               child: Icon(
                 Icons.wifi_off_rounded,
-                color: const Color(0xFFDC2626),
+                color: context.colors.error,
                 size: isCompact ? 28 : 38,
               ),
             ),
@@ -59,7 +75,7 @@ class NoInternetView extends StatelessWidget {
               style: GoogleFonts.outfit(
                 fontSize: isCompact ? 16 : 19,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+                color: context.colors.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
@@ -70,47 +86,23 @@ class NoInternetView extends StatelessWidget {
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: isCompact ? 12.5 : 13.5,
-                color: AppColors.textSecondary,
+                color: context.colors.textSecondary,
                 height: 1.35,
               ),
             ),
             SizedBox(height: isCompact ? 14 : 22),
 
-            // Retry and Help Buttons
+            // Yangilash ishorasi va maslahatlar tugmasi
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (onRetry != null)
-                  ElevatedButton.icon(
-                    onPressed: onRetry,
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: Text(
-                      context.tr('no_internet_reload'),
-                      style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 11,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                const SizedBox(width: 8),
+                if (onRetry != null) const Flexible(child: PullToRefreshHint()),
                 IconButton(
                   tooltip: context.tr('no_internet_tips_tooltip'),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.help_outline_rounded,
-                    color: AppColors.textSecondary,
+                    color: context.colors.textSecondary,
                     size: 22,
                   ),
                   onPressed: () => OfflineInfoBottomSheet.show(context),

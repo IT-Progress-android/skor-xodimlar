@@ -348,7 +348,190 @@ class AvatarMarkerHelper {
     return byteData!.buffer.asUint8List();
   }
 
-  /// Generates End Point ("B" oxirgi nuqta) marker for route history
+  /// Lokatsiya uzilishi belgisi markazining balandligi (rasm ichida, dp) —
+  /// xaritada `anchor` shu nuqtaga qo'yiladi.
+  static const double outageDotY = 11.0;
+  static const double outageMarkerHeight = 44.0;
+
+  /// Lokatsiya uzilishi belgisi (tomchisiz): chiziq ustida kichik doira va
+  /// ostida vaqt. [start] — uzilgan joy (ichida "!"), aks holda qayta
+  /// ulangan joy (bo'sh halqa).
+  static Future<Uint8List> generateOutageMarkerBytes({
+    required String time,
+    required Color color,
+    required bool start,
+    double pixelRatio = 3,
+  }) async {
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+    const double width = 64.0;
+    const double height = outageMarkerHeight;
+    const double cx = width / 2;
+    const double cy = outageDotY;
+    canvas.scale(pixelRatio);
+
+    final shadow = Paint()
+      ..color = const Color(0x44000000)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+    if (start) {
+      canvas.drawCircle(const Offset(cx, cy + 1), 9, shadow);
+      canvas.drawCircle(const Offset(cx, cy), 9, Paint()..color = color);
+      canvas.drawCircle(
+        const Offset(cx, cy),
+        9,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6
+          ..color = Colors.white,
+      );
+      final mark = TextPainter(
+        text: const TextSpan(
+          text: '!',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+            height: 1,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      mark.paint(canvas, Offset(cx - mark.width / 2, cy - mark.height / 2));
+    } else {
+      canvas.drawCircle(const Offset(cx, cy + 1), 6.5, shadow);
+      canvas.drawCircle(const Offset(cx, cy), 6, Paint()..color = Colors.white);
+      canvas.drawCircle(
+        const Offset(cx, cy),
+        6,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3
+          ..color = color,
+      );
+    }
+
+    final tp = TextPainter(
+      text: TextSpan(
+        text: time,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final pill = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: const Offset(cx, 33),
+        width: tp.width + 10,
+        height: tp.height + 6,
+      ),
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(pill.shift(const Offset(0, 1)), shadow);
+    canvas.drawRRect(pill, Paint()..color = Colors.white);
+    canvas.drawRRect(
+      pill,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = color.withValues(alpha: 0.6),
+    );
+    tp.paint(canvas, Offset(cx - tp.width / 2, 33 - tp.height / 2));
+
+    final ui.Image img = await recorder.endRecording().toImage(
+      (width * pixelRatio).ceil(),
+      (height * pixelRatio).ceil(),
+    );
+    final ByteData? byteData = await img.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+    return byteData!.buffer.asUint8List();
+  }
+
+  /// To'xtash joyi metkasi: rangli pin ichida tartib raqami ("1", "2"...).
+  static Future<Uint8List> generateNumberPinBytes({
+    required String label,
+    required Color color,
+    double pixelRatio = 3,
+  }) async {
+    final ui.PictureRecorder recorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+
+    // Mantiqiy o'lcham (dp); rasm [pixelRatio] bilan aniq chiziladi.
+    const double width = 44.0;
+    const double height = 56.0;
+    const double cx = width / 2;
+    const double cy = 20.0;
+    const double radius = 17.0;
+    canvas.scale(pixelRatio);
+
+    // Tomchi: yuqorida doira, pastga silliq uchli.
+    final Path pin = Path()
+      ..moveTo(cx, height - 3)
+      ..cubicTo(
+        cx - 4,
+        height - 12,
+        cx - radius,
+        cy + radius * 0.75,
+        cx - radius,
+        cy,
+      )
+      ..arcToPoint(
+        const Offset(cx + radius, cy),
+        radius: const Radius.circular(radius),
+      )
+      ..cubicTo(
+        cx + radius,
+        cy + radius * 0.75,
+        cx + 4,
+        height - 12,
+        cx,
+        height - 3,
+      )
+      ..close();
+
+    canvas.drawPath(
+      pin.shift(const Offset(0, 1.5)),
+      Paint()
+        ..color = const Color(0x55000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5),
+    );
+    canvas.drawPath(pin, Paint()..color = color);
+    canvas.drawPath(
+      pin,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = Colors.white,
+    );
+
+    final TextPainter tp = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: label.length > 2 ? 13 : 17,
+          fontWeight: FontWeight.w800,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
+
+    final ui.Image img = await recorder.endRecording().toImage(
+      (width * pixelRatio).ceil(),
+      (height * pixelRatio).ceil(),
+    );
+    final ByteData? byteData = await img.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+    return byteData!.buffer.asUint8List();
+  }
+
   static Future<Uint8List> generateEndPinBytes() async {
     final ui.PictureRecorder recorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(recorder);

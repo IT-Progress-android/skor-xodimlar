@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/services/gps_live_tracker_service.dart';
 import 'package:skore_hodimlar/core/utils/app_error_formatter.dart';
 import 'package:skore_hodimlar/features/attendance/domain/entities/attendance_entity.dart';
 import 'package:skore_hodimlar/features/attendance/domain/usecases/check_location_usecase.dart';
@@ -110,6 +113,15 @@ class CheckLocationPendingReview extends AttendanceState {
   List<Object> get props => [entity];
 }
 
+/// Server rad etdi, lekin bu xato emas — tushunarli holat: dam olish kuni
+/// (`dam_olish_kuni`) yoki sessiya allaqachon yopilgan (`sessiya_yopiq`).
+class CheckLocationNotice extends AttendanceState {
+  final CheckLocationEntity entity;
+  const CheckLocationNotice(this.entity);
+  @override
+  List<Object> get props => [entity];
+}
+
 class AttendanceError extends AttendanceState {
   final String message;
   const AttendanceError(this.message);
@@ -132,6 +144,13 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
       try {
         final entity = await getTodayAttendanceUseCase(event.phone);
         emit(TodayAttendanceLoaded(entity));
+        // GPS faqat davomatdan o'tib "Keldim"dan "Ketdim"gacha olinadi.
+        unawaited(
+          GpsLiveTrackerService.instance.syncWorkSession(
+            active: entity.inside,
+            autoEndAt: entity.autoKetdiAt,
+          ),
+        );
       } catch (e) {
         emit(AttendanceError(AppErrorFormatter.toUzbek(e)));
       }
@@ -151,6 +170,17 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
     });
 
     on<CheckInSubmit>((event, emit) async {
+      if (event.verifyToken == null || event.verifyToken!.isEmpty) {
+        // Never send a check-in without a real face-verification token — the
+        // backend would silently accept it as a pending-review request
+        // instead of rejecting it, so this must be refused before it's sent.
+        emit(
+          AttendanceError(
+            AppLocalizations.trStatic('checkin_face_not_matched'),
+          ),
+        );
+        return;
+      }
       emit(AttendanceLoading());
       try {
         final entity = await checkLocationUseCase(
@@ -162,12 +192,27 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           isMock: event.isMock,
         );
         _emitLocationResult(entity, emit);
+        // Aniq tugash vaqti bugungi davomat yuklanganda keladi; hozircha
+        // sessiya yarim tungacha ochiq deb olinadi.
+        if (entity.status == 'ok' || entity.status == 'pending_review') {
+          unawaited(
+            GpsLiveTrackerService.instance.syncWorkSession(active: true),
+          );
+        }
       } catch (e) {
         emit(AttendanceError(AppErrorFormatter.toUzbek(e)));
       }
     });
 
     on<CheckOutSubmit>((event, emit) async {
+      if (event.verifyToken == null || event.verifyToken!.isEmpty) {
+        emit(
+          AttendanceError(
+            AppLocalizations.trStatic('checkin_face_not_matched'),
+          ),
+        );
+        return;
+      }
       emit(AttendanceLoading());
       try {
         final entity = await checkLocationUseCase(
@@ -179,6 +224,14 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
           isMock: event.isMock,
         );
         _emitLocationResult(entity, emit);
+        // `sessiya_yopiq` — server allaqachon avto-ketdi qilgan, GPS ham to'xtasin.
+        if (entity.status == 'ok' ||
+            entity.status == 'pending_review' ||
+            entity.status == 'sessiya_yopiq') {
+          unawaited(
+            GpsLiveTrackerService.instance.syncWorkSession(active: false),
+          );
+        }
       } catch (e) {
         emit(AttendanceError(AppErrorFormatter.toUzbek(e)));
       }
@@ -200,6 +253,10 @@ class AttendanceBloc extends Bloc<AttendanceEvent, AttendanceState> {
         break;
       case 'pending_review':
         emit(CheckLocationPendingReview(entity));
+        break;
+      case 'dam_olish_kuni':
+      case 'sessiya_yopiq':
+        emit(CheckLocationNotice(entity));
         break;
       default:
         // 'error' (org has no location set), 'not_found', or anything unexpected.

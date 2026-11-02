@@ -83,5 +83,11 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    implementation("com.yandex.android:maps.mobile:4.3.1-full")
+    // yandex_mapkit plagini bilan bir xil versiya va variant bo'lishi shart
+    // (gradle.properties: yandexMapkit.variant=full). Marshrut (Pedestrian/
+    // DrivingRouter) faqat full variantda bor.
+    implementation("com.yandex.android:maps.mobile:4.39.1-full")
+    // local_auth: biometrik dialog Android 8 da yiqilmasligi uchun LaunchTheme
+    // AppCompat mavzusidan bo'lishi kerak.
+    implementation("androidx.appcompat:appcompat:1.7.0")
 }

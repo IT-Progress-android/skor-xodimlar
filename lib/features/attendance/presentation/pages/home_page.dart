@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/services/app_update_service.dart';
@@ -17,9 +18,12 @@ import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/core/utils/date_formatter.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_ring.dart';
 import 'package:skore_hodimlar/core/widgets/location_disclosure_dialog.dart';
+import 'package:skore_hodimlar/core/widgets/no_internet_view.dart';
 import 'package:skore_hodimlar/core/widgets/notification_bell_button.dart';
+import 'package:skore_hodimlar/core/widgets/pull_to_refresh.dart';
 import 'package:skore_hodimlar/core/widgets/shimmer_loading_widget.dart';
 import 'package:skore_hodimlar/core/widgets/skor_logo_widget.dart';
+import 'package:skore_hodimlar/features/attendance/domain/entities/attendance_entity.dart';
 import 'package:skore_hodimlar/features/attendance/presentation/bloc/attendance_bloc.dart';
 import 'package:skore_hodimlar/features/attendance/presentation/widgets/check_in_button.dart';
 import 'package:skore_hodimlar/features/profile/presentation/bloc/profile_bloc.dart';
@@ -31,17 +35,34 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String? _phone;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadToday();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndRequestLocationPermission();
       AppUpdateService.checkAndShowUpdate(context);
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Ilova fondan qaytganda davomat yangilanadi: server orada avto-ketdi
+  /// qilgan bo'lsa, tugma "Keldim"ga o'tadi va GPS holati moslashadi.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted || _phone == null) {
+      return;
+    }
+    context.read<AttendanceBloc>().add(LoadTodayAttendance(_phone!));
   }
 
   Future<void> _checkAndRequestLocationPermission() async {
@@ -90,8 +111,9 @@ class _HomePageState extends State<HomePage> {
     if (status.isGranted) return;
 
     if (!mounted) return;
-    final accepted =
-        await LocationDisclosureDialog.showBackgroundDisclosure(context);
+    final accepted = await LocationDisclosureDialog.showBackgroundDisclosure(
+      context,
+    );
     await prefs.setBool(askedKey, true);
     if (!accepted) return;
 
@@ -118,12 +140,12 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         centerTitle: true,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         leadingWidth: 54,
         leading: Padding(
@@ -149,7 +171,7 @@ class _HomePageState extends State<HomePage> {
         title: Text(
           'Skor Xodimlar',
           style: GoogleFonts.outfit(
-            color: const Color(0xFF0D6E6E),
+            color: context.colors.primary,
             fontWeight: FontWeight.w900,
             fontSize: 20,
             letterSpacing: 0.5,
@@ -160,8 +182,8 @@ class _HomePageState extends State<HomePage> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           return RefreshIndicator(
-            onRefresh: () async => _loadToday(),
-            color: const Color(0xFF0D6E6E),
+            onRefresh: () => refreshWithMinDelay(_loadToday),
+            color: context.colors.primary,
             child: BlocBuilder<AttendanceBloc, AttendanceState>(
               builder: (context, state) {
                 if (state is AttendanceLoading) {
@@ -186,7 +208,6 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(height: 12),
                         _buildMainCard(),
                         const SizedBox(height: 14),
-                        _buildPendingRequestBanner(),
                         _buildActionArea(),
                         const SizedBox(height: 14),
                         _buildTodayTimelineCard(),
@@ -252,15 +273,15 @@ class _HomePageState extends State<HomePage> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF0D6E6E), Color(0xFF139797)],
+            gradient: LinearGradient(
+              colors: [context.colors.primary, Color(0xFF139797)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0D6E6E).withValues(alpha: 0.3),
+                color: context.colors.primary.withValues(alpha: 0.3),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -273,6 +294,8 @@ class _HomePageState extends State<HomePage> {
                 displayName.isNotEmpty
                     ? context.tr('home_greeting_named', {'name': displayName})
                     : context.tr('home_greeting'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.outfit(
                   color: Colors.white,
                   fontSize: 18,
@@ -295,15 +318,15 @@ class _HomePageState extends State<HomePage> {
     return BlocBuilder<AttendanceBloc, AttendanceState>(
       builder: (context, state) {
         if (state is AttendanceLoading) {
-          return const Center(
-            child: CircularProgressIndicator(color: Color(0xFF0D6E6E)),
+          return Center(
+            child: CircularProgressIndicator(color: context.colors.primary),
           );
         } else if (state is TodayAttendanceLoaded) {
           final data = state.entity;
           return Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.colors.surface,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
@@ -317,10 +340,10 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Text(
                   data.smena,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -328,7 +351,10 @@ class _HomePageState extends State<HomePage> {
                   context.tr('home_today_attendance_time', {
                     'time': data.smenaStart,
                   }),
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  style: TextStyle(
+                    color: context.colors.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Container(
@@ -350,18 +376,24 @@ class _HomePageState extends State<HomePage> {
                         height: 7,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: data.inside ? Colors.green : Colors.grey,
+                          color: data.inside
+                              ? Colors.green
+                              : context.colors.textSecondary,
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         data.inside
-                            ? context.tr('home_currently_working')
+                            ? context.tr(
+                                data.overtime
+                                    ? 'home_currently_overtime'
+                                    : 'home_currently_working',
+                              )
                             : context.tr('home_not_working'),
                         style: TextStyle(
                           color: data.inside
-                              ? Colors.green.shade800
-                              : Colors.grey.shade700,
+                              ? context.colors.success
+                              : context.colors.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -377,13 +409,13 @@ class _HomePageState extends State<HomePage> {
                       context.tr('attendance_check_in_label'),
                       data.checkIn?.time ?? '--:--',
                       Icons.login_rounded,
-                      const Color(0xFF0D6E6E),
+                      context.colors.primary,
                     ),
                     _buildTimeColumn(
                       context.tr('attendance_check_out_label'),
                       data.checkOut?.time ?? '--:--',
                       Icons.logout_rounded,
-                      const Color(0xFFF5A623),
+                      context.colors.accent,
                     ),
                   ],
                 ),
@@ -414,11 +446,16 @@ class _HomePageState extends State<HomePage> {
             ),
           );
         } else if (state is AttendanceError) {
-          return Center(
-            child: Text(
-              state.message,
-              style: const TextStyle(color: Colors.red),
-            ),
+          final lower = state.message.toLowerCase();
+          final isNetwork =
+              lower.contains('internet') || lower.contains('tarmoq');
+          return NoInternetView(
+            isCompact: true,
+            title: isNetwork
+                ? context.tr('no_internet_title')
+                : context.tr('error_occurred_title'),
+            message: state.message,
+            onRetry: _loadToday,
           );
         }
         return const SizedBox();
@@ -436,7 +473,10 @@ class _HomePageState extends State<HomePage> {
       children: [
         Icon(icon, color: color, size: 28),
         const SizedBox(height: 6),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        Text(
+          label,
+          style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
+        ),
         const SizedBox(height: 4),
         Text(
           time,
@@ -446,73 +486,10 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Yuz tekshiruvisiz belgilangan davomat rahbar tasdig'ini kutayotgan
-  /// bo'lsa, buni bosh ekranda ko'rsatamiz. Aks holda xodim davomat vaqti
-  /// bo'sh turganini ko'rib, yana "Keldim" bosaverardi.
-  Widget _buildPendingRequestBanner() {
-    return BlocBuilder<AttendanceBloc, AttendanceState>(
-      builder: (context, state) {
-        if (state is! TodayAttendanceLoaded) return const SizedBox.shrink();
-        final pending = state.entity.pendingRequests;
-        if (pending.isEmpty) return const SizedBox.shrink();
-
-        final first = pending.first;
-        final label = first.isIn
-            ? context.tr('attendance_check_in_label')
-            : context.tr('attendance_check_out_label');
-
-        return Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 14),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF5A623).withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: const Color(0xFFF5A623).withValues(alpha: 0.35),
-            ),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.hourglass_top_rounded,
-                color: Color(0xFFB45309),
-                size: 22,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.tr('home_pending_request', {'label': label}),
-                      style: GoogleFonts.outfit(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF92400E),
-                      ),
-                    ),
-                    if (first.createdAt != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        context.tr('home_sent_at', {
-                          'date': '${first.createdAt}',
-                        }),
-                        style: GoogleFonts.outfit(
-                          fontSize: 11.5,
-                          color: const Color(0xFFB45309),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  /// Oxirgi sessiyani server yopgan (chiqish kamerasiga qaralmagan):
+  /// `check_out` null, lekin xodim ishda emas.
+  static bool _lastSessionAutoClosed(TodayAttendanceEntity e) =>
+      e.sessions.isNotEmpty && e.sessions.last.autoKetdi;
 
   Widget _buildActionArea() {
     return BlocBuilder<AttendanceBloc, AttendanceState>(
@@ -520,8 +497,14 @@ class _HomePageState extends State<HomePage> {
         bool isCheckIn = true;
         if (state is TodayAttendanceLoaded) {
           final e = state.entity;
-          if (e.next == 'ketdim' ||
-              (e.checkIn?.time != null && e.checkOut?.time == null)) {
+          final next = e.next?.trim();
+          if (next != null && next.isNotEmpty) {
+            isCheckIn = next != 'ketdim';
+          } else if (e.checkIn?.time != null &&
+              e.checkOut?.time == null &&
+              !_lastSessionAutoClosed(e)) {
+            // `check_out: null` avtomatik yopilgan kunda ham keladi — u
+            // holda xodim ishda emas, "Ketdim" ko'rsatilmaydi.
             isCheckIn = false;
           }
         }
@@ -550,7 +533,7 @@ class _HomePageState extends State<HomePage> {
         return Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
@@ -569,19 +552,19 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   Row(
                     children: [
-                      const AnimatedRotatingRing(
+                      AnimatedRotatingRing(
                         size: 32,
                         borderWidth: 1.5,
                         gradientColors: [
-                          Color(0xFF0D6E6E),
+                          context.colors.primary,
                           Color(0xFF139797),
                           Color(0xFF26BBAA),
-                          Color(0xFF0D6E6E),
+                          context.colors.primary,
                         ],
                         child: Center(
                           child: Icon(
                             Icons.history_toggle_off_rounded,
-                            color: Color(0xFF0D6E6E),
+                            color: context.colors.primary,
                             size: 18,
                           ),
                         ),
@@ -589,10 +572,10 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(width: 10),
                       Text(
                         context.tr('home_timeline_title'),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: context.colors.textPrimary,
                         ),
                       ),
                     ],
@@ -601,7 +584,7 @@ class _HomePageState extends State<HomePage> {
               ),
 
               const SizedBox(height: 14),
-              const Divider(height: 1, color: Color(0xFFE5E7EB)),
+              Divider(height: 1, color: context.colors.divider),
               const SizedBox(height: 14),
 
               // Scrollable Constrained Timeline Area (Option 1)
@@ -619,7 +602,7 @@ class _HomePageState extends State<HomePage> {
                             : context.tr('home_check_in_not_recorded'),
                         time: data.checkIn?.time ?? '--:--',
                         icon: Icons.login_rounded,
-                        iconColor: const Color(0xFF0D6E6E),
+                        iconColor: context.colors.primary,
                         bgColor: const Color(
                           0xFF0D6E6E,
                         ).withValues(alpha: 0.12),
@@ -639,8 +622,8 @@ class _HomePageState extends State<HomePage> {
                             width: 2,
                             height: 24,
                             color: hasCheckOut
-                                ? const Color(0xFFF5A623)
-                                : Colors.grey.shade300,
+                                ? context.colors.accent
+                                : context.colors.border,
                           ),
                         ),
                       ),
@@ -650,10 +633,12 @@ class _HomePageState extends State<HomePage> {
                         title: context.tr('home_check_out_title'),
                         subtitle: hasCheckOut
                             ? context.tr('home_check_out_recorded')
+                            : _lastSessionAutoClosed(data)
+                            ? context.tr('home_check_out_missing')
                             : context.tr('home_check_out_not_recorded'),
                         time: data.checkOut?.time ?? '--:--',
                         icon: Icons.logout_rounded,
-                        iconColor: const Color(0xFFF5A623),
+                        iconColor: context.colors.accent,
                         bgColor: const Color(
                           0xFFF5A623,
                         ).withValues(alpha: 0.12),
@@ -683,12 +668,12 @@ class _HomePageState extends State<HomePage> {
       width: 38,
       height: 38,
       decoration: BoxDecoration(
-        color: isActive ? bgColor : Colors.grey.shade100,
+        color: isActive ? bgColor : context.colors.surfaceVariant,
         shape: BoxShape.circle,
       ),
       child: Icon(
         icon,
-        color: isActive ? iconColor : Colors.grey.shade400,
+        color: isActive ? iconColor : context.colors.textHint,
         size: 19,
       ),
     );
@@ -699,18 +684,18 @@ class _HomePageState extends State<HomePage> {
             ? AnimatedRotatingRing(
                 size: 42,
                 borderWidth: 2,
-                gradientColors: (iconColor == const Color(0xFFF5A623))
-                    ? const [
-                        Color(0xFFF5A623),
+                gradientColors: (iconColor == context.colors.accent)
+                    ? [
+                        context.colors.accent,
                         Color(0xFFFBBF24),
                         Color(0xFFD97706),
-                        Color(0xFFF5A623),
+                        context.colors.accent,
                       ]
-                    : const [
-                        Color(0xFF0D6E6E),
+                    : [
+                        context.colors.primary,
                         Color(0xFF139797),
                         Color(0xFF26BBAA),
-                        Color(0xFF0D6E6E),
+                        context.colors.primary,
                       ],
                 child: iconWidget,
               )
@@ -725,7 +710,9 @@ class _HomePageState extends State<HomePage> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: isActive ? Colors.black87 : Colors.grey.shade600,
+                  color: isActive
+                      ? context.colors.textPrimary
+                      : context.colors.textSecondary,
                 ),
               ),
               const SizedBox(height: 2),
@@ -733,7 +720,9 @@ class _HomePageState extends State<HomePage> {
                 subtitle,
                 style: TextStyle(
                   fontSize: 12,
-                  color: isActive ? Colors.grey.shade600 : Colors.grey.shade400,
+                  color: isActive
+                      ? context.colors.textSecondary
+                      : context.colors.textHint,
                 ),
               ),
             ],
@@ -742,7 +731,7 @@ class _HomePageState extends State<HomePage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: isActive ? bgColor : Colors.grey.shade100,
+            color: isActive ? bgColor : context.colors.surfaceVariant,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
@@ -750,7 +739,7 @@ class _HomePageState extends State<HomePage> {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: isActive ? iconColor : Colors.grey.shade400,
+              color: isActive ? iconColor : context.colors.textHint,
             ),
           ),
         ),

@@ -33,9 +33,18 @@ class ApiConstants {
   static const rahbarHisobotKunlik = '/rahbar/hisobot/kunlik';
   static const rahbarHisobotQoldiruvchilar = '/rahbar/hisobot/qoldiruvchilar';
   static const rahbarBugalteriyaOylik = '/rahbar/bugalteriya/oylik';
+
+  // Bugalteriya: davr (hafta/oy/yil) va maosh sozlamalari (BACKEND_TZ_BUGALTERIYA_TOXTASH_DAVOMAT.md)
+  static const rahbarBugalteriya = '/rahbar/bugalteriya';
+  static const rahbarBugalteriyaSozlamalar = '/rahbar/bugalteriya/sozlamalar';
+  static const rahbarBugalteriyaXodim = '/rahbar/bugalteriya/xodim';
+  static const rahbarBugalteriyaOmmaviy = '/rahbar/bugalteriya/xodim/ommaviy';
   static const rahbarArizalar = '/rahbar/arizalar';
+  static const rahbarLokatsiya = '/rahbar/lokatsiya';
   static const rahbarLokatsiyaLive = '/rahbar/lokatsiya/live';
   static const rahbarLokatsiyaTarix = '/rahbar/lokatsiya/tarix';
+  static const rahbarLokatsiyaToxtashlar = '/rahbar/lokatsiya/toxtashlar';
+  static const rahbarLokatsiyaMarshrut = '/rahbar/lokatsiya/marshrut';
 
   // Staff Live GPS Tracking & Geofence (MOBIL_UCHUN_GEOFENCE_FACEID_XAVFSIZLIK.md)
   static const staffLokatsiya = '/bot/staff/lokatsiya';
@@ -44,4 +53,15 @@ class ApiConstants {
   static const geofenceZones = '/bot/staff/geofence-zones';
   static const staffLokatsiyaEvent = '/bot/staff/lokatsiya/event';
   static const staffSecurityReport = '/bot/staff/security/report';
+  static const staffLokatsiyaHolat = '/bot/staff/lokatsiya/holat';
+  static const rahbarLokatsiyaUzilishlar = '/rahbar/lokatsiya/uzilishlar';
+
+  // Topshiriqlar (TOPSHIRIQLAR_TZ_BACKEND.md)
+  static const staffTopshiriq = '/bot/staff/topshiriq';
+  static const staffTopshiriqSoni = '/bot/staff/topshiriq/soni';
+  static const rahbarTopshiriq = '/rahbar/topshiriq';
+  static const rahbarTopshiriqStatistika = '/rahbar/topshiriq/statistika';
+  static const rahbarTopshiriqDinamika =
+      '/rahbar/topshiriq/statistika/dinamika';
+  static const rahbarFcmToken = '/rahbar/fcm-token';
 }

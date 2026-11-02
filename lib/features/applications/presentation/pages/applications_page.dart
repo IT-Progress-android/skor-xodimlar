@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,8 +9,10 @@ import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/widgets/no_internet_view.dart';
 import 'package:skore_hodimlar/core/widgets/notification_bell_button.dart';
+import 'package:skore_hodimlar/core/widgets/pull_to_refresh.dart';
 import 'package:skore_hodimlar/core/widgets/skor_logo_widget.dart';
 import 'package:skore_hodimlar/features/applications/domain/entities/ariza_entity.dart';
+import 'package:skore_hodimlar/features/applications/presentation/ariza_refresh.dart';
 import 'package:skore_hodimlar/features/applications/presentation/bloc/ariza_bloc.dart';
 import 'package:skore_hodimlar/features/applications/presentation/widgets/ariza_card.dart';
 import 'package:skore_hodimlar/features/applications/presentation/widgets/new_application_bottom_sheet.dart';
@@ -31,12 +35,16 @@ class _ApplicationsPageState extends State<ApplicationsPage>
   ];
   String? phone;
   int? staffId;
+  late final StreamSubscription<String> _pushSub;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _loadPhone();
+    _pushSub = arizaPushes.stream.listen((type) {
+      if (type == 'manual_review') _loadData(_tabController.index);
+    });
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         _loadData(_tabController.index);
@@ -64,7 +72,7 @@ class _ApplicationsPageState extends State<ApplicationsPage>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
@@ -72,7 +80,7 @@ class _ApplicationsPageState extends State<ApplicationsPage>
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
             fontSize: 19,
-            color: const Color(0xFF1A1A1A),
+            color: context.colors.textPrimary,
           ),
         ),
         content: Text(
@@ -82,7 +90,7 @@ class _ApplicationsPageState extends State<ApplicationsPage>
           }),
           style: GoogleFonts.outfit(
             fontSize: 14.5,
-            color: const Color(0xFF4B5563),
+            color: context.colors.textSecondary,
             height: 1.4,
           ),
         ),
@@ -96,7 +104,7 @@ class _ApplicationsPageState extends State<ApplicationsPage>
             child: Text(
               context.tr('no'),
               style: GoogleFonts.outfit(
-                color: Colors.grey.shade700,
+                color: context.colors.textSecondary,
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
@@ -104,7 +112,7 @@ class _ApplicationsPageState extends State<ApplicationsPage>
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
+              backgroundColor: context.colors.error,
               foregroundColor: Colors.white,
               elevation: 2,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -142,7 +150,9 @@ class _ApplicationsPageState extends State<ApplicationsPage>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? AppColors.error : AppColors.primary,
+        backgroundColor: isError
+            ? context.colors.error
+            : context.colors.primary,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -150,6 +160,7 @@ class _ApplicationsPageState extends State<ApplicationsPage>
 
   @override
   void dispose() {
+    _pushSub.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -157,12 +168,12 @@ class _ApplicationsPageState extends State<ApplicationsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         centerTitle: true,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         leadingWidth: 54,
         leading: Padding(
@@ -188,7 +199,7 @@ class _ApplicationsPageState extends State<ApplicationsPage>
         title: Text(
           context.tr('applications_title'),
           style: GoogleFonts.outfit(
-            color: const Color(0xFF0D6E6E),
+            color: context.colors.primary,
             fontWeight: FontWeight.w900,
             fontSize: 20,
             letterSpacing: 0.5,
@@ -217,9 +228,9 @@ class _ApplicationsPageState extends State<ApplicationsPage>
                 tabAlignment: TabAlignment.start,
                 labelPadding: const EdgeInsets.symmetric(horizontal: 14),
                 indicatorSize: TabBarIndicatorSize.label,
-                labelColor: const Color(0xFF0D6E6E),
-                unselectedLabelColor: Colors.grey.shade600,
-                indicatorColor: const Color(0xFF0D6E6E),
+                labelColor: context.colors.primary,
+                unselectedLabelColor: context.colors.textSecondary,
+                indicatorColor: context.colors.primary,
                 labelStyle: GoogleFonts.outfit(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
@@ -276,7 +287,7 @@ class _ApplicationsPageState extends State<ApplicationsPage>
             _loadData(_tabController.index);
           }
         },
-        backgroundColor: const Color(0xFF0D6E6E),
+        backgroundColor: context.colors.primary,
         foregroundColor: Colors.white,
         elevation: 4,
         icon: const Icon(Icons.add_rounded, size: 22),
@@ -292,15 +303,16 @@ class _ApplicationsPageState extends State<ApplicationsPage>
     return BlocBuilder<ArizaBloc, ArizaState>(
       builder: (context, state) {
         if (state is ArizaLoading) {
-          return const Center(
-            child: CircularProgressIndicator(color: Color(0xFF0D6E6E)),
+          return Center(
+            child: CircularProgressIndicator(color: context.colors.primary),
           );
         } else if (state is ArizalarLoaded) {
           final list = state.list;
           if (list.isEmpty) {
             return RefreshIndicator(
-              onRefresh: () async => _loadData(_tabController.index),
-              color: const Color(0xFF0D6E6E),
+              onRefresh: () =>
+                  refreshWithMinDelay(() => _loadData(_tabController.index)),
+              color: context.colors.primary,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: [
@@ -309,26 +321,26 @@ class _ApplicationsPageState extends State<ApplicationsPage>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.insert_drive_file_outlined,
                           size: 64,
-                          color: Colors.grey,
+                          color: context.colors.textSecondary,
                         ),
                         const SizedBox(height: 16),
                         Text(
                           context.tr('ariza_empty_title'),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.black87,
+                            color: context.colors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           context.tr('ariza_empty_desc'),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
-                            color: Colors.grey,
+                            color: context.colors.textSecondary,
                           ),
                         ),
                       ],
@@ -339,10 +351,12 @@ class _ApplicationsPageState extends State<ApplicationsPage>
             );
           }
           return RefreshIndicator(
-            onRefresh: () async => _loadData(_tabController.index),
-            color: const Color(0xFF0D6E6E),
+            onRefresh: () =>
+                refreshWithMinDelay(() => _loadData(_tabController.index)),
+            color: context.colors.primary,
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              // Pastda "Yangi ariza" tugmasi oxirgi arizani yopmasin.
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               itemCount: list.length,
               itemBuilder: (context, index) {
                 final item = list[index];

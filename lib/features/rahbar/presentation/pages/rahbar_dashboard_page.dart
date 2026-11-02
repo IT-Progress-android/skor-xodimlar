@@ -8,17 +8,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/security/app_lock_service.dart';
+import 'package:skore_hodimlar/core/security/security_settings_page.dart';
 import 'package:skore_hodimlar/core/services/fcm_service.dart';
+import 'package:skore_hodimlar/core/theme/theme_cubit.dart';
 import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
+import 'package:skore_hodimlar/core/utils/day_change_watcher.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
 import 'package:skore_hodimlar/core/widgets/language_picker_bottom_sheet.dart';
+import 'package:skore_hodimlar/core/widgets/pull_to_refresh.dart';
 import 'package:skore_hodimlar/core/widgets/shimmer_loading_widget.dart';
+import 'package:skore_hodimlar/core/widgets/theme_picker_bottom_sheet.dart';
 import 'package:skore_hodimlar/features/rahbar/data/datasources/rahbar_remote_datasource.dart';
+import 'package:skore_hodimlar/features/rahbar/data/unassigned_branch.dart';
 import 'package:skore_hodimlar/features/rahbar/domain/entities/rahbar_entity.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/bloc/rahbar_bloc.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/pages/rahbar_arizalar_page.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/pages/rahbar_kundalik_page.dart';
+import 'package:skore_hodimlar/features/rahbar/presentation/rahbar_map_focus.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/widgets/rahbar_empty_state_widget.dart';
+import 'package:skore_hodimlar/features/tasks/presentation/widgets/rahbar_tasks_entry_card.dart';
 
 class RahbarDashboardPage extends StatefulWidget {
   const RahbarDashboardPage({super.key});
@@ -42,15 +51,38 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
   final _fmt = DateFormat('yyyy-MM-dd');
   final _displayFmt = DateFormat('dd.MM.yyyy');
 
+  /// 00:00 da (yoki ilova ertalab orqa fondan qaytganda) "bugun" ko'rib
+  /// turilgan bo'lsa — yangi kunga o'tiladi. Kalendardan tanlangan boshqa
+  /// sana o'zgarmaydi.
+  late final DayChangeWatcher _dayWatcher = DayChangeWatcher(
+    onNewDay: (today) {
+      if (!mounted) return;
+      final yesterday = DateUtils.addDaysToDate(today, -1);
+      if (!DateUtils.isSameDay(_selectedDate, yesterday)) return;
+      setState(() => _selectedDate = today);
+      _loadDashboard();
+    },
+  );
+
   @override
   void initState() {
     super.initState();
+    _dayWatcher;
+    rahbarOpenRequest.addListener(_onOpenRequest);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onOpenRequest());
     final bloc = context.read<RahbarBloc>();
     if (bloc.state is! RahbarDashboardLoaded && bloc.state is! RahbarLoading) {
       _loadDashboard();
     } else {
       _fetchBranchesAndKundalik();
     }
+  }
+
+  @override
+  void dispose() {
+    rahbarOpenRequest.removeListener(_onOpenRequest);
+    _dayWatcher.dispose();
+    super.dispose();
   }
 
   void _loadDashboard() {
@@ -218,6 +250,13 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
           }
 
           // Agar rawFiliallar ichida biriktirilmagan xodimlar bo'lsa va parsedBranches da id==0 bo'lmasa, qo'shamiz
+          // Filialsiz guruh nomi serverdan (`nom`) olinadi.
+          final serverUnassignedName = unassignedBranchName(rawFiliallar);
+          for (final b in parsedBranches) {
+            if (b['id'] == 0 && serverUnassignedName != null) {
+              b['name'] = serverUnassignedName;
+            }
+          }
           if (!parsedBranches.any((b) => (b['id'] as int) == 0)) {
             final hasUnassignedStaff = rawFiliallar.any((f) {
               final fMap = Map<String, dynamic>.from(f as Map);
@@ -227,7 +266,9 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
             if (hasUnassignedStaff) {
               parsedBranches.add({
                 'id': 0,
-                'name': 'Filial biriktirilmagan',
+                'name':
+                    serverUnassignedName ??
+                    context.tr('rahbar_unassigned_branch'),
                 'lat': 0.0,
                 'lng': 0.0,
                 'radius': 0.0,
@@ -437,7 +478,28 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
     return _hasCheckIn(item) && !_hasCheckOut(item);
   }
 
-  void _openKundalikWithFilter(KundalikFilter filter) {
+  /// Bildirishnoma bosilganda (ilova yopiq bo'lsa — sahifa ochilgach).
+  void _onOpenRequest() {
+    final request = rahbarOpenRequest.value;
+    if (request == null || !mounted) return;
+    rahbarOpenRequest.value = null;
+    switch (request.target) {
+      case RahbarOpenTarget.arizalar:
+        _openArizalar();
+      case RahbarOpenTarget.kelmaganlar:
+        _openKundalikWithFilter(
+          KundalikFilter.kelmagan,
+          date: request.day,
+          filialId: request.filialId,
+        );
+    }
+  }
+
+  void _openKundalikWithFilter(
+    KundalikFilter filter, {
+    DateTime? date,
+    int? filialId,
+  }) {
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -445,8 +507,8 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
           create: (_) => sl<RahbarBloc>(),
           child: RahbarKundalikPage(
             initialFilter: filter,
-            initialDate: _selectedDate,
-            initialFilialId: _selectedFilialId,
+            initialDate: date ?? _selectedDate,
+            initialFilialId: filialId ?? _selectedFilialId,
           ),
         ),
       ),
@@ -471,12 +533,6 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
       initialDate: _selectedDate,
       firstDate: DateTime(2023),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) => Theme(
-        data: ThemeData.light().copyWith(
-          colorScheme: const ColorScheme.light(primary: Color(0xFF0D6E6E)),
-        ),
-        child: child!,
-      ),
     );
     if (picked != null) {
       setState(() {
@@ -490,7 +546,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
@@ -498,14 +554,14 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
             fontSize: 18,
-            color: const Color(0xFF1A1A1A),
+            color: context.colors.textPrimary,
           ),
         ),
         content: Text(
           context.tr('rahbar_logout_confirm'),
           style: GoogleFonts.outfit(
             fontSize: 14,
-            color: const Color(0xFF4B5563),
+            color: context.colors.textSecondary,
           ),
         ),
         actions: [
@@ -513,12 +569,12 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               context.tr('no'),
-              style: GoogleFonts.outfit(color: Colors.grey),
+              style: GoogleFonts.outfit(color: context.colors.textSecondary),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
+              backgroundColor: context.colors.error,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -527,8 +583,10 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
             onPressed: () async {
               Navigator.pop(ctx);
               final prefs = sl<SharedPreferences>();
-              await prefs.clear();
+              await FcmService.deleteRahbarTokenFromBackend();
+              await FcmService.clearPrefsKeepingDeviceId(prefs);
               await FcmService.syncUserRole();
+              await AppLockService.instance.clear();
               if (context.mounted) {
                 context.go('/login');
               }
@@ -546,36 +604,52 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
           onPressed: () => _confirmLogout(context),
-          icon: const Icon(Icons.logout_rounded, color: AppColors.error),
+          icon: Icon(Icons.logout_rounded, color: context.colors.error),
           tooltip: context.tr('rahbar_logout_tooltip'),
         ),
         title: Text(
           context.tr('rahbar_dashboard_title'),
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF0D6E6E),
+            color: context.colors.primary,
             fontSize: 20,
           ),
         ),
         actions: [
           IconButton(
+            onPressed: () => SecuritySettingsPage.open(context),
+            icon: Icon(
+              Icons.lock_outline_rounded,
+              color: context.colors.primary,
+            ),
+            tooltip: context.tr('security_title'),
+          ),
+          IconButton(
             onPressed: () => LanguagePickerBottomSheet.show(context),
-            icon: const Icon(Icons.language_rounded, color: Color(0xFF0D6E6E)),
+            icon: Icon(Icons.language_rounded, color: context.colors.primary),
             tooltip: context.tr('app_language'),
+          ),
+          IconButton(
+            onPressed: () => ThemePickerBottomSheet.show(context),
+            icon: Icon(
+              ThemePickerBottomSheet.iconFor(context.watch<ThemeCubit>().state),
+              color: context.colors.primary,
+            ),
+            tooltip: context.tr('app_theme'),
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async => _loadDashboard(),
-        color: const Color(0xFF0D6E6E),
+        onRefresh: () => refreshWithMinDelay(_loadDashboard),
+        color: context.colors.primary,
         child: BlocBuilder<RahbarBloc, RahbarState>(
           buildWhen: (prev, curr) =>
               curr is RahbarLoading ||
@@ -684,7 +758,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                               style: GoogleFonts.outfit(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
+                                color: context.colors.textPrimary,
                               ),
                             );
                           },
@@ -697,23 +771,21 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(
-                                0xFF0D6E6E,
-                              ).withValues(alpha: 0.08),
+                              color: context.colors.primarySoft,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: const Color(
-                                  0xFF0D6E6E,
-                                ).withValues(alpha: 0.25),
+                                color: context.colors.primary.withValues(
+                                  alpha: 0.25,
+                                ),
                               ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.calendar_month_rounded,
                                   size: 16,
-                                  color: Color(0xFF0D6E6E),
+                                  color: context.colors.primary,
                                 ),
                                 const SizedBox(width: 5),
                                 Text(
@@ -721,7 +793,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                                   style: GoogleFonts.outfit(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF0D6E6E),
+                                    color: context.colors.primary,
                                   ),
                                 ),
                               ],
@@ -776,13 +848,13 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                         decoration: BoxDecoration(
                           color: Colors.amber.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.amber.shade700),
+                          border: Border.all(color: context.colors.warning),
                         ),
                         child: Row(
                           children: [
                             Icon(
                               Icons.info_outline_rounded,
-                              color: Colors.amber.shade900,
+                              color: context.colors.warning,
                               size: 20,
                             ),
                             const SizedBox(width: 10),
@@ -801,7 +873,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                                 style: GoogleFonts.outfit(
                                   fontSize: 12.5,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.amber.shade900,
+                                  color: context.colors.warning,
                                 ),
                               ),
                             ),
@@ -811,53 +883,77 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                     ],
 
                     // 3. Grid of KPIs (Kelgan, Kechikkan, Kelmagan, Hozir ishda) - Clickable
-                    GridView.count(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.45,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: [
-                        _buildKpiCard(
-                          context.tr('attendance_present'),
-                          '$presentCount/$totalStaff',
-                          Icons.check_circle_rounded,
-                          Colors.green,
-                          subtitle: foiz > 0
-                              ? '${foiz.toStringAsFixed(1)}%'
-                              : null,
-                          onTap: () =>
-                              _openKundalikWithFilter(KundalikFilter.kelgan),
-                        ),
-                        _buildKpiCard(
-                          context.tr('rahbar_kpi_late'),
-                          '$lateCount',
-                          Icons.access_time_filled_rounded,
-                          Colors.orange,
-                          onTap: () =>
-                              _openKundalikWithFilter(KundalikFilter.kechikkan),
-                        ),
-                        _buildKpiCard(
-                          context.tr('attendance_absent'),
-                          '$absentCount',
-                          Icons.cancel_rounded,
-                          Colors.red,
-                          onTap: () =>
-                              _openKundalikWithFilter(KundalikFilter.kelmagan),
-                        ),
-                        _buildKpiCard(
-                          context.tr('home_currently_working'),
-                          '$hozirIshda',
-                          Icons.business_center_rounded,
-                          const Color(0xFF0D6E6E),
-                          onTap: () => _openKundalikWithFilter(
-                            KundalikFilter.hozirIshda,
+                    // Using IntrinsicHeight Rows instead of GridView to avoid shrinkWrap padding quirks
+                    // and ensure consistent UI/UX spacing across all devices.
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _buildKpiCard(
+                              context.tr('attendance_present'),
+                              '$presentCount/$totalStaff',
+                              Icons.check_circle_rounded,
+                              Colors.green,
+                              subtitle: foiz > 0
+                                  ? '${foiz.toStringAsFixed(1)}%'
+                                  : null,
+                              onTap: () => _openKundalikWithFilter(
+                                KundalikFilter.kelgan,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildKpiCard(
+                              context.tr('rahbar_kpi_late'),
+                              '$lateCount',
+                              Icons.access_time_filled_rounded,
+                              Colors.orange,
+                              onTap: () => _openKundalikWithFilter(
+                                KundalikFilter.kechikkan,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _buildKpiCard(
+                              context.tr('attendance_absent'),
+                              '$absentCount',
+                              Icons.cancel_rounded,
+                              Colors.red,
+                              onTap: () => _openKundalikWithFilter(
+                                KundalikFilter.kelmagan,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildKpiCard(
+                              context.tr('home_currently_working'),
+                              '$hozirIshda',
+                              Icons.business_center_rounded,
+                              context.colors.primary,
+                              onTap: () => _openKundalikWithFilter(
+                                KundalikFilter.hozirIshda,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Topshiriqlar (TOPSHIRIQLAR_TZ_BACKEND.md)
+                    const RahbarTasksEntryCard(),
+                    const SizedBox(height: 14),
 
                     // 4. Leave & Applications Banner (Yangi arizalar) - Clickable
                     Material(
@@ -869,11 +965,11 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                           margin: EdgeInsets.zero,
                           borderRadius: 16,
                           borderWidth: 2.0,
-                          gradientColors: const [
-                            Color(0xFF0D6E6E),
+                          gradientColors: [
+                            context.colors.primary,
                             Color(0xFF139797),
                             Color(0xFF26BBAA),
-                            Color(0xFF0D6E6E),
+                            context.colors.primary,
                           ],
                           child: Padding(
                             padding: const EdgeInsets.all(16),
@@ -887,9 +983,9 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                                     ).withValues(alpha: 0.1),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.assignment_ind_rounded,
-                                    color: Color(0xFF0D6E6E),
+                                    color: context.colors.primary,
                                     size: 28,
                                   ),
                                 ),
@@ -906,7 +1002,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                                         style: GoogleFonts.outfit(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 15,
-                                          color: AppColors.textPrimary,
+                                          color: context.colors.textPrimary,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
@@ -920,15 +1016,15 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                                         ),
                                         style: GoogleFonts.outfit(
                                           fontSize: 13,
-                                          color: Colors.grey.shade700,
+                                          color: context.colors.textSecondary,
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                const Icon(
+                                Icon(
                                   Icons.chevron_right_rounded,
-                                  color: Color(0xFF0D6E6E),
+                                  color: context.colors.primary,
                                   size: 24,
                                 ),
                               ],
@@ -949,7 +1045,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                             style: GoogleFonts.outfit(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              color: context.colors.textPrimary,
                             ),
                           ),
                           GestureDetector(
@@ -961,7 +1057,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                               style: GoogleFonts.outfit(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF0D6E6E),
+                                color: context.colors.primary,
                               ),
                             ),
                           ),
@@ -973,10 +1069,9 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                             ar['xodim']?.toString() ??
                             ar['xodim_name']?.toString() ??
                             context.tr('rahbar_staff_fallback');
-                        final turi = BackendTextMapper.translateArizaTuriNomi(
-                          ar['turi_nomi']?.toString() ??
-                              context.tr('rahbar_ariza_fallback'),
-                        );
+                        final turi =
+                            ar['turi_nomi']?.toString() ??
+                            context.tr('rahbar_ariza_fallback');
                         final kunlar = (ar['kunlar'] as num?)?.toInt() ?? 1;
                         final dateStr = ar['from_date']?.toString() ?? '';
                         final photoUrl = ar['photo']?.toString();
@@ -989,7 +1084,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                             child: Container(
                               margin: const EdgeInsets.only(bottom: 8),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: context.colors.surface,
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
@@ -1019,14 +1114,14 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                                   }),
                                   style: GoogleFonts.outfit(
                                     fontSize: 12,
-                                    color: Colors.grey.shade700,
+                                    color: context.colors.textSecondary,
                                   ),
                                 ),
                                 trailing: Text(
                                   dateStr,
                                   style: GoogleFonts.outfit(
                                     fontSize: 11.5,
-                                    color: const Color(0xFF0D6E6E),
+                                    color: context.colors.primary,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -1047,7 +1142,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                           style: GoogleFonts.outfit(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
+                            color: context.colors.textPrimary,
                           ),
                         ),
                         if (filteredKechikkanlar.isNotEmpty)
@@ -1078,9 +1173,9 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                         ),
                         margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: context.colors.surface,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.grey.shade200),
+                          border: Border.all(color: context.colors.divider),
                         ),
                         child: Row(
                           children: [
@@ -1092,9 +1187,9 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                                 ).withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.check_circle_rounded,
-                                color: Color(0xFF16A34A),
+                                color: context.colors.success,
                                 size: 20,
                               ),
                             ),
@@ -1104,7 +1199,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                               style: GoogleFonts.outfit(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade700,
+                                color: context.colors.textSecondary,
                               ),
                             ),
                           ],
@@ -1130,7 +1225,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                             child: Container(
                               margin: const EdgeInsets.only(bottom: 8),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: context.colors.surface,
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
@@ -1158,7 +1253,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                                         bolim,
                                         style: GoogleFonts.outfit(
                                           fontSize: 12,
-                                          color: Colors.grey.shade600,
+                                          color: context.colors.textSecondary,
                                         ),
                                       )
                                     : null,
@@ -1199,7 +1294,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                         style: GoogleFonts.outfit(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: context.colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -1217,7 +1312,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                           margin: const EdgeInsets.only(bottom: 10),
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: context.colors.surface,
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
@@ -1239,7 +1334,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                                     style: GoogleFonts.outfit(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14.5,
-                                      color: AppColors.textPrimary,
+                                      color: context.colors.textPrimary,
                                     ),
                                   ),
                                   Text(
@@ -1247,7 +1342,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                                     style: GoogleFonts.outfit(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
-                                      color: const Color(0xFF0D6E6E),
+                                      color: context.colors.primary,
                                     ),
                                   ),
                                 ],
@@ -1258,11 +1353,10 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                                 child: LinearProgressIndicator(
                                   value: percent,
                                   minHeight: 8,
-                                  backgroundColor: Colors.grey.shade200,
-                                  valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                        Color(0xFF0D6E6E),
-                                      ),
+                                  backgroundColor: context.colors.surfaceStrong,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    context.colors.primary,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1303,19 +1397,17 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0D6E6E) : Colors.white,
+          color: isSelected ? context.colors.primary : context.colors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF0D6E6E)
-                : const Color(0xFFE2E8F0),
+            color: isSelected ? context.colors.primary : context.colors.border,
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
               color: isSelected
-                  ? const Color(0xFF0D6E6E).withValues(alpha: 0.25)
-                  : Colors.black.withValues(alpha: 0.03),
+                  ? context.colors.primary.withValues(alpha: 0.25)
+                  : context.colors.shadow,
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -1329,7 +1421,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
               style: GoogleFonts.outfit(
                 fontSize: 12.5,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                color: isSelected ? Colors.white : const Color(0xFF334155),
+                color: isSelected ? Colors.white : context.colors.textPrimary,
               ),
             ),
             const SizedBox(width: 6),
@@ -1338,7 +1430,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
               decoration: BoxDecoration(
                 color: isSelected
                     ? Colors.white.withValues(alpha: 0.25)
-                    : const Color(0xFFF1F5F9),
+                    : context.colors.surfaceStrong,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -1346,7 +1438,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                 style: GoogleFonts.outfit(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : const Color(0xFF334155),
+                  color: isSelected ? Colors.white : context.colors.textPrimary,
                 ),
               ),
             ),
@@ -1366,12 +1458,12 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
 
     Widget fallbackAvatar() => CircleAvatar(
       radius: radius,
-      backgroundColor: const Color(0xFF0D6E6E).withValues(alpha: 0.12),
+      backgroundColor: context.colors.primary.withValues(alpha: 0.12),
       child: Text(
         name.isNotEmpty ? name[0].toUpperCase() : '?',
         style: GoogleFonts.outfit(
           fontWeight: FontWeight.bold,
-          color: const Color(0xFF0D6E6E),
+          color: context.colors.primary,
           fontSize: radius * 0.7,
         ),
       ),
@@ -1398,7 +1490,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.colors.surface,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
@@ -1421,7 +1513,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                   style: GoogleFonts.outfit(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 if (tashkilot.isNotEmpty)
@@ -1429,7 +1521,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                     tashkilot,
                     style: GoogleFonts.outfit(
                       fontSize: 12.5,
-                      color: Colors.grey.shade600,
+                      color: context.colors.textSecondary,
                     ),
                   ),
               ],
@@ -1456,8 +1548,9 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
         child: Ink(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: context.colors.border),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -1477,9 +1570,11 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                   Expanded(
                     child: Text(
                       title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(
                         fontSize: 12.5,
-                        color: Colors.grey.shade600,
+                        color: context.colors.textSecondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -1487,33 +1582,38 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
                   Icon(
                     Icons.chevron_right_rounded,
                     size: 16,
-                    color: Colors.grey.shade400,
+                    color: context.colors.textHint,
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Text(
-                    value,
-                    style: GoogleFonts.outfit(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(width: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      subtitle,
+                      value,
                       style: GoogleFonts.outfit(
-                        fontSize: 13,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
-                        color: Colors.green.shade700,
+                        color: context.colors.textPrimary,
                       ),
                     ),
+                    if (subtitle != null) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        subtitle,
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: context.colors.success,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ],
           ),

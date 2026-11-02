@@ -41,13 +41,9 @@ class DateFormatter {
             'mins': '$m',
           });
         } else if (h > 0 && m == 0) {
-          return AppLocalizations.trStatic('duration_hours', {
-            'hours': '$h',
-          });
+          return AppLocalizations.trStatic('duration_hours', {'hours': '$h'});
         } else {
-          return AppLocalizations.trStatic('duration_mins', {
-            'mins': '$m',
-          });
+          return AppLocalizations.trStatic('duration_mins', {'mins': '$m'});
         }
       }
     }
@@ -71,14 +67,9 @@ class DateFormatter {
         'mins': '$minutes',
       });
     } else if (hours > 0 && minutes == 0) {
-      return AppLocalizations.trStatic('duration_hours', {
-        'hours': '$hours',
-      });
+      return AppLocalizations.trStatic('duration_hours', {'hours': '$hours'});
     } else {
-      return AppLocalizations.trStatic('duration_mins', {
-        'mins': '$minutes',
-      });
+      return AppLocalizations.trStatic('duration_mins', {'mins': '$minutes'});
     }
   }
 }
-

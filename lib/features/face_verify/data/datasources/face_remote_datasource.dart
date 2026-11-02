@@ -1,5 +1,5 @@
-import 'dart:typed_data';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:skore_hodimlar/core/constants/api_constants.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/utils/app_error_formatter.dart';
@@ -37,6 +37,11 @@ class FaceRemoteDataSourceImpl implements FaceRemoteDataSource {
       ),
     });
 
+    final sw = Stopwatch()..start();
+    debugPrint(
+      '[YUZ API] --> POST ${ApiConstants.faceVerify} phone=$phone '
+      'id=${staffId ?? '-'} selfie=${imageBytes.length} bayt',
+    );
     try {
       final response = await dio.post(
         ApiConstants.faceVerify,
@@ -48,6 +53,10 @@ class FaceRemoteDataSourceImpl implements FaceRemoteDataSource {
         ),
       );
 
+      debugPrint(
+        '[YUZ API] <-- ${response.statusCode} (${sw.elapsedMilliseconds} ms) '
+        'javob=${response.data}',
+      );
       if (response.data is Map) {
         final map = Map<String, dynamic>.from(response.data as Map);
         final rawMsg = map['message']?.toString() ?? '';
@@ -98,6 +107,10 @@ class FaceRemoteDataSourceImpl implements FaceRemoteDataSource {
 
       throw Exception(AppErrorFormatter.fromStatusCode(response.statusCode));
     } on DioException catch (e) {
+      debugPrint(
+        '[YUZ API] xx  (${sw.elapsedMilliseconds} ms) dio=${e.type.name} '
+        'status=${e.response?.statusCode} javob=${e.response?.data}',
+      );
       throw Exception(AppErrorFormatter.toUzbek(e));
     } catch (e) {
       throw Exception(AppErrorFormatter.toUzbek(e));

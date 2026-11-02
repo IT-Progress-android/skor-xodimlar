@@ -34,7 +34,7 @@ class _OfflineInfoBottomSheetState extends State<OfflineInfoBottomSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.tr('offline_reconnected')),
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: context.colors.success,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -42,7 +42,7 @@ class _OfflineInfoBottomSheetState extends State<OfflineInfoBottomSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.tr('offline_still_no_internet')),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: context.colors.error,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -53,8 +53,8 @@ class _OfflineInfoBottomSheetState extends State<OfflineInfoBottomSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: context.colors.surface,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(28),
           topRight: Radius.circular(28),
@@ -75,7 +75,7 @@ class _OfflineInfoBottomSheetState extends State<OfflineInfoBottomSheet> {
               width: 44,
               height: 4.5,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: context.colors.border,
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
@@ -87,19 +87,19 @@ class _OfflineInfoBottomSheetState extends State<OfflineInfoBottomSheet> {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: const Color(0xFFFEE2E2),
+              color: context.colors.errorSoft,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFDC2626).withValues(alpha: 0.15),
+                  color: context.colors.error.withValues(alpha: 0.15),
                   blurRadius: 18,
                   offset: const Offset(0, 6),
                 ),
               ],
             ),
-            child: const Icon(
+            child: Icon(
               Icons.wifi_off_rounded,
-              color: Color(0xFFDC2626),
+              color: context.colors.error,
               size: 36,
             ),
           ),
@@ -112,7 +112,7 @@ class _OfflineInfoBottomSheetState extends State<OfflineInfoBottomSheet> {
             style: GoogleFonts.outfit(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary,
+              color: context.colors.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
@@ -123,7 +123,7 @@ class _OfflineInfoBottomSheetState extends State<OfflineInfoBottomSheet> {
             textAlign: TextAlign.center,
             style: GoogleFonts.outfit(
               fontSize: 14,
-              color: AppColors.textSecondary,
+              color: context.colors.textSecondary,
               height: 1.4,
             ),
           ),
@@ -133,9 +133,9 @@ class _OfflineInfoBottomSheetState extends State<OfflineInfoBottomSheet> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: context.colors.surfaceVariant,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: context.colors.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,7 +170,7 @@ class _OfflineInfoBottomSheetState extends State<OfflineInfoBottomSheet> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      side: BorderSide(color: context.colors.border),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -180,7 +180,7 @@ class _OfflineInfoBottomSheetState extends State<OfflineInfoBottomSheet> {
                       style: GoogleFonts.outfit(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
+                        color: context.colors.textSecondary,
                       ),
                     ),
                   ),
@@ -212,7 +212,7 @@ class _OfflineInfoBottomSheetState extends State<OfflineInfoBottomSheet> {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: context.colors.primary,
                       foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -233,14 +233,14 @@ class _OfflineInfoBottomSheetState extends State<OfflineInfoBottomSheet> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: AppColors.primary),
+        Icon(icon, size: 18, color: context.colors.primary),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             text,
             style: GoogleFonts.outfit(
               fontSize: 13,
-              color: const Color(0xFF334155),
+              color: context.colors.textPrimary,
               height: 1.3,
             ),
           ),

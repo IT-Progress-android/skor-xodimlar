@@ -1,11 +1,15 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 
 class AnimatedRotatingRing extends StatefulWidget {
   final Widget child;
   final double size;
   final double borderWidth;
-  final List<Color> gradientColors;
+
+  /// Defaults to the brand teal sweep of the current theme.
+  final List<Color>? gradientColors;
   final Duration duration;
 
   const AnimatedRotatingRing({
@@ -13,13 +17,7 @@ class AnimatedRotatingRing extends StatefulWidget {
     required this.child,
     this.size = 110,
     this.borderWidth = 3.5,
-    this.gradientColors = const [
-      Color(0xFF0D6E6E),
-      Color(0xFF139797),
-      Color(0xFF26BBAA),
-      Color(0xFF084B4B),
-      Color(0xFF0D6E6E),
-    ],
+    this.gradientColors,
     this.duration = const Duration(seconds: 4),
   });
 
@@ -46,6 +44,16 @@ class _AnimatedRotatingRingState extends State<AnimatedRotatingRing>
 
   @override
   Widget build(BuildContext context) {
+    final c = context.colors;
+    final gradientColors =
+        widget.gradientColors ??
+        [
+          c.primary,
+          const Color(0xFF139797),
+          const Color(0xFF26BBAA),
+          const Color(0xFF084B4B),
+          c.primary,
+        ];
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
@@ -56,22 +64,19 @@ class _AnimatedRotatingRingState extends State<AnimatedRotatingRing>
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: SweepGradient(
-              colors: widget.gradientColors,
+              colors: gradientColors,
               transform: GradientRotation(_controller.value * 2 * math.pi),
             ),
             boxShadow: [
               BoxShadow(
-                color: widget.gradientColors.first.withValues(alpha: 0.25),
+                color: gradientColors.first.withValues(alpha: 0.25),
                 blurRadius: 10,
                 spreadRadius: 1,
               ),
             ],
           ),
           child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: c.surface, shape: BoxShape.circle),
             padding: const EdgeInsets.all(2),
             child: widget.child,
           ),

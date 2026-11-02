@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/widgets/custom_animated_bottom_nav_bar.dart';
+import 'package:skore_hodimlar/core/widgets/location_permission_gate.dart';
 import 'package:skore_hodimlar/features/applications/presentation/pages/applications_page.dart';
 import 'package:skore_hodimlar/features/applications/presentation/pages/new_application_page.dart';
 import 'package:skore_hodimlar/features/attendance/presentation/pages/attendance_history_page.dart';
@@ -15,6 +17,9 @@ import 'package:skore_hodimlar/features/lookup/presentation/pages/add_staff_page
 import 'package:skore_hodimlar/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:skore_hodimlar/features/profile/presentation/pages/profile_page.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/pages/rahbar_shell_page.dart';
+import 'package:skore_hodimlar/features/tasks/presentation/pages/rahbar_task_detail_page.dart';
+import 'package:skore_hodimlar/features/tasks/presentation/pages/staff_task_detail_page.dart';
+import 'package:skore_hodimlar/features/tasks/presentation/pages/staff_tasks_page.dart';
 
 class AppRouter {
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -52,16 +57,35 @@ class AppRouter {
         path: '/notifications',
         builder: (context, state) => const NotificationsPage(),
       ),
+      GoRoute(
+        path: '/tasks/:id',
+        builder: (context, state) => StaffTaskDetailPage(
+          taskId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+        ),
+      ),
+      GoRoute(
+        path: '/rahbar/topshiriq/:id',
+        builder: (context, state) => RahbarTaskDetailPage(
+          taskId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+        ),
+      ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
         builder: (context, state, child) {
-          return ScaffoldWithNavBar(child: child);
+          // Xodim sahifalari joylashuvga «Har doim» ruxsatisiz ochilmaydi.
+          return LocationPermissionGate(
+            child: ScaffoldWithNavBar(child: child),
+          );
         },
         routes: [
           GoRoute(path: '/', builder: (context, state) => const HomePage()),
           GoRoute(
             path: '/history',
             builder: (context, state) => const AttendanceHistoryPage(),
+          ),
+          GoRoute(
+            path: '/tasks',
+            builder: (context, state) => const StaffTasksPage(),
           ),
           GoRoute(
             path: '/applications',
@@ -95,11 +119,14 @@ class ScaffoldWithNavBar extends StatelessWidget {
       if (location.startsWith('/history')) {
         return 1;
       }
-      if (location.startsWith('/applications')) {
+      if (location.startsWith('/tasks')) {
         return 2;
       }
-      if (location.startsWith('/profile')) {
+      if (location.startsWith('/applications')) {
         return 3;
+      }
+      if (location.startsWith('/profile')) {
+        return 4;
       }
       return 0;
     }
@@ -113,9 +140,12 @@ class ScaffoldWithNavBar extends StatelessWidget {
           context.go('/history');
           break;
         case 2:
-          context.go('/applications');
+          context.go('/tasks');
           break;
         case 3:
+          context.go('/applications');
+          break;
+        case 4:
           context.go('/profile');
           break;
       }
@@ -123,7 +153,11 @@ class ScaffoldWithNavBar extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Menyu balandligini (tizim tugmalari zonasi bilan) Scaffold o'zi
+        // hisoblaydi — qat'iy chekinish 3 tugmali navigatsiyali telefonlarda
+        // tugma va ro'yxat oxirini menyu ostida qoldirardi.
         return Scaffold(
+          backgroundColor: context.colors.background,
           body: child,
           bottomNavigationBar: CustomAnimatedBottomNavBar(
             selectedIndex: calculateSelectedIndex(context),
@@ -138,6 +172,11 @@ class ScaffoldWithNavBar extends StatelessWidget {
                 icon: Icons.history_outlined,
                 selectedIcon: Icons.history_rounded,
                 label: context.tr('nav_history'),
+              ),
+              CustomBottomNavItem(
+                icon: Icons.task_alt_outlined,
+                selectedIcon: Icons.task_alt_rounded,
+                label: context.tr('nav_tasks'),
               ),
               CustomBottomNavItem(
                 icon: Icons.assignment_outlined,

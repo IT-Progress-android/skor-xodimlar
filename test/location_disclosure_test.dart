@@ -41,23 +41,42 @@ void main() {
       }
     });
 
-    test('All background location statements contain required closed/not in use disclosure', () {
-      // English
-      final en = AppTranslations.translations['en']!['bg_location_disclosure_statement']!;
-      expect(en.toLowerCase().contains('closed or not in use'), isTrue);
+    test(
+      'All background location statements contain required closed/not in use disclosure',
+      () {
+        // English
+        final en = AppTranslations
+            .translations['en']!['bg_location_disclosure_statement']!;
+        expect(en.toLowerCase().contains('closed or not in use'), isTrue);
 
-      // Uzbek
-      final uz = AppTranslations.translations['uz']!['bg_location_disclosure_statement']!;
-      expect(uz.toLowerCase().contains('yopiq') && uz.toLowerCase().contains('fonda'), isTrue);
+        // Uzbek
+        final uz = AppTranslations
+            .translations['uz']!['bg_location_disclosure_statement']!;
+        expect(
+          uz.toLowerCase().contains('yopiq') &&
+              uz.toLowerCase().contains('fonda'),
+          isTrue,
+        );
 
-      // Russian
-      final ru = AppTranslations.translations['ru']!['bg_location_disclosure_statement']!;
-      expect(ru.toLowerCase().contains('закрыто') && ru.toLowerCase().contains('фоновом'), isTrue);
+        // Russian
+        final ru = AppTranslations
+            .translations['ru']!['bg_location_disclosure_statement']!;
+        expect(
+          ru.toLowerCase().contains('закрыто') &&
+              ru.toLowerCase().contains('фоновом'),
+          isTrue,
+        );
 
-      // Kyrgyz
-      final ky = AppTranslations.translations['ky']!['bg_location_disclosure_statement']!;
-      expect(ky.toLowerCase().contains('жабык') && ky.toLowerCase().contains('фондо'), isTrue);
-    });
+        // Kyrgyz
+        final ky = AppTranslations
+            .translations['ky']!['bg_location_disclosure_statement']!;
+        expect(
+          ky.toLowerCase().contains('жабык') &&
+              ky.toLowerCase().contains('фондо'),
+          isTrue,
+        );
+      },
+    );
   });
 
   group('LocationDisclosureDialog Widget Tests', () {
@@ -80,9 +99,20 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text(AppTranslations.translations['uz']!['location_disclosure_title']!), findsOneWidget);
-      expect(find.text(AppTranslations.translations['uz']!['location_accept']!), findsOneWidget);
-      expect(find.text(AppTranslations.translations['uz']!['location_decline']!), findsOneWidget);
+      expect(
+        find.text(
+          AppTranslations.translations['uz']!['location_disclosure_title']!,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(AppTranslations.translations['uz']!['location_accept']!),
+        findsOneWidget,
+      );
+      expect(
+        find.text(AppTranslations.translations['uz']!['location_decline']!),
+        findsOneWidget,
+      );
     });
 
     testWidgets('Renders Background Disclosure properly', (tester) async {
@@ -104,9 +134,22 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text(AppTranslations.translations['uz']!['bg_location_disclosure_title']!), findsOneWidget);
-      expect(find.text(AppTranslations.translations['uz']!['bg_location_open_settings']!), findsOneWidget);
-      expect(find.text(AppTranslations.translations['uz']!['bg_location_cancel']!), findsOneWidget);
+      expect(
+        find.text(
+          AppTranslations.translations['uz']!['bg_location_disclosure_title']!,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          AppTranslations.translations['uz']!['bg_location_open_settings']!,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(AppTranslations.translations['uz']!['bg_location_cancel']!),
+        findsOneWidget,
+      );
     });
   });
 }

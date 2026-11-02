@@ -3,8 +3,10 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skore_hodimlar/core/constants/api_constants.dart';
+import 'package:skore_hodimlar/core/services/app_update_service.dart';
 import 'package:skore_hodimlar/core/services/auth_token_store.dart';
 import 'package:skore_hodimlar/core/services/network_connectivity_service.dart';
+import 'package:skore_hodimlar/core/services/network_diagnostics_service.dart';
 import 'package:skore_hodimlar/router/app_router.dart';
 
 class DioClient {
@@ -103,6 +105,20 @@ class DioClient {
             }
           }
 
+          // 426 Upgrade Required — server bu versiyani endi qabul qilmaydi:
+          // ilova o'rniga majburiy yangilash sahifasi ochiladi.
+          if (response.statusCode == 426) {
+            unawaited(AppUpdateService.onUpgradeRequired());
+          }
+
+          // Firewall/WAF rad etishiga o'xshash javob (HTML 403, 406, 429) —
+          // tashqi IP va vaqt bilan birga diagnostika uchun yozib qo'yamiz.
+          unawaited(
+            NetworkDiagnosticsService.instance.recordSuspiciousResponse(
+              response,
+            ),
+          );
+
           // Muvaffaqiyatli tarmoq javobi kelsa — aloqani faol (online) deb belgilaymiz
           if (response.statusCode != null && response.statusCode! < 500) {
             NetworkConnectivityService.instance.notifyOnline();
@@ -118,6 +134,9 @@ class DioClient {
               e.error is SocketException) {
             NetworkConnectivityService.instance.notifyOffline();
           }
+          // Serverga yetib bo'lmasa (IP ban gumoni) yoki 5xx — tashqi IP,
+          // provayder, aniq vaqt va TCP tekshiruvi bilan saqlaymiz.
+          unawaited(NetworkDiagnosticsService.instance.recordDioError(e));
           handler.next(e);
         },
       ),

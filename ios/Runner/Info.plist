@@ -4,6 +4,8 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Ilovani tez va xavfsiz ochish uchun Face ID ishlatiladi.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Davomatni tasdiqlash uchun yuzingizni suratga olishda kameradan foydalaniladi.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

@@ -16,7 +16,7 @@ class LanguagePickerBottomSheet {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: context.colors.surface,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -34,7 +34,7 @@ class LanguagePickerBottomSheet {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
+                      color: context.colors.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -45,12 +45,12 @@ class LanguagePickerBottomSheet {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
+                        color: context.colors.primary.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.language_rounded,
-                        color: AppColors.primary,
+                        color: context.colors.primary,
                         size: 24,
                       ),
                     ),
@@ -61,18 +61,18 @@ class LanguagePickerBottomSheet {
                         children: [
                           Text(
                             context.tr('select_language'),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              color: context.colors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             context.tr('select_language_desc'),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.textSecondary,
+                              color: context.colors.textSecondary,
                             ),
                           ),
                         ],
@@ -87,13 +87,13 @@ class LanguagePickerBottomSheet {
                     margin: const EdgeInsets.only(bottom: 10),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? AppColors.primary.withValues(alpha: 0.08)
-                          : const Color(0xFFF8FAFC),
+                          ? context.colors.primary.withValues(alpha: 0.08)
+                          : context.colors.surfaceVariant,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isSelected
-                            ? AppColors.primary
-                            : const Color(0xFFE2E8F0),
+                            ? context.colors.primary
+                            : context.colors.border,
                         width: isSelected ? 1.8 : 1.0,
                       ),
                     ),
@@ -130,8 +130,8 @@ class LanguagePickerBottomSheet {
                                           ? FontWeight.bold
                                           : FontWeight.w600,
                                       color: isSelected
-                                          ? AppColors.primary
-                                          : AppColors.textPrimary,
+                                          ? context.colors.primary
+                                          : context.colors.textPrimary,
                                     ),
                                   ),
                                   Text(
@@ -139,10 +139,10 @@ class LanguagePickerBottomSheet {
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: isSelected
-                                          ? AppColors.primary.withValues(
+                                          ? context.colors.primary.withValues(
                                               alpha: 0.8,
                                             )
-                                          : AppColors.textSecondary,
+                                          : context.colors.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -151,8 +151,8 @@ class LanguagePickerBottomSheet {
                             if (isSelected)
                               Container(
                                 padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primary,
+                                decoration: BoxDecoration(
+                                  color: context.colors.primary,
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(

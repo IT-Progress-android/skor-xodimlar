@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/services/network_connectivity_service.dart';
 import 'package:skore_hodimlar/core/widgets/offline_info_bottom_sheet.dart';
@@ -150,8 +152,8 @@ class _GlobalOfflineBannerState extends State<GlobalOfflineBanner>
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: _showRestoredState
-                                ? const [Color(0xFF16A34A), Color(0xFF0D9488)]
-                                : const [Color(0xFFDC2626), Color(0xFF991B1B)],
+                                ? [context.colors.success, Color(0xFF0D9488)]
+                                : [context.colors.error, Color(0xFF991B1B)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -164,8 +166,8 @@ class _GlobalOfflineBannerState extends State<GlobalOfflineBanner>
                             BoxShadow(
                               color:
                                   (_showRestoredState
-                                          ? const Color(0xFF16A34A)
-                                          : const Color(0xFFDC2626))
+                                          ? context.colors.success
+                                          : context.colors.error)
                                       .withValues(alpha: 0.35),
                               blurRadius: 16,
                               offset: const Offset(0, 6),

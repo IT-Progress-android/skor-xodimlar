@@ -2,6 +2,7 @@ import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skore_hodimlar/core/localization/cubit/language_cubit.dart';
 import 'package:skore_hodimlar/core/network/dio_client.dart';
+import 'package:skore_hodimlar/core/theme/theme_cubit.dart';
 // Applications
 import 'package:skore_hodimlar/features/applications/data/datasources/ariza_remote_datasource.dart';
 import 'package:skore_hodimlar/features/applications/data/repositories/ariza_repository_impl.dart';
@@ -48,6 +49,11 @@ import 'package:skore_hodimlar/features/profile/presentation/bloc/profile_bloc.d
 // Rahbar (Admin)
 import 'package:skore_hodimlar/features/rahbar/data/datasources/rahbar_remote_datasource.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/bloc/rahbar_bloc.dart';
+// Tasks (Topshiriqlar)
+import 'package:skore_hodimlar/features/tasks/data/datasources/task_remote_datasource.dart';
+import 'package:skore_hodimlar/features/tasks/presentation/cubit/rahbar_tasks_cubit.dart';
+import 'package:skore_hodimlar/features/tasks/presentation/cubit/staff_tasks_cubit.dart';
+import 'package:skore_hodimlar/features/tasks/presentation/cubit/task_stats_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -61,6 +67,9 @@ Future<void> initDependencies() async {
 
   sl.registerLazySingleton<LanguageCubit>(
     () => LanguageCubit(sl<SharedPreferences>()),
+  );
+  sl.registerLazySingleton<ThemeCubit>(
+    () => ThemeCubit(sl<SharedPreferences>()),
   );
 
   // --- Auth ---
@@ -167,4 +176,17 @@ Future<void> initDependencies() async {
   sl.registerFactory(
     () => RahbarBloc(remoteDataSource: sl<RahbarRemoteDataSource>()),
   );
+
+  // --- Tasks (Topshiriqlar) ---
+  sl.registerLazySingleton<TaskRemoteDataSource>(
+    () => TaskRemoteDataSourceImpl(
+      dioClient: sl<DioClient>(),
+      sharedPreferences: sl<SharedPreferences>(),
+      rahbarRemoteDataSource: sl<RahbarRemoteDataSource>(),
+    ),
+  );
+  sl.registerFactory(() => StaffTasksCubit(sl<TaskRemoteDataSource>()));
+  sl.registerFactory(() => RahbarTasksCubit(sl<TaskRemoteDataSource>()));
+  sl.registerFactory(() => StaffPickerCubit(sl<TaskRemoteDataSource>()));
+  sl.registerFactory(() => TaskStatsCubit(sl<TaskRemoteDataSource>()));
 }

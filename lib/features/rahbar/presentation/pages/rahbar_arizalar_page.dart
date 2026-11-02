@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,6 +7,8 @@ import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
+import 'package:skore_hodimlar/core/widgets/pull_to_refresh.dart';
+import 'package:skore_hodimlar/features/applications/presentation/ariza_refresh.dart';
 import 'package:skore_hodimlar/features/rahbar/domain/entities/rahbar_entity.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/bloc/rahbar_bloc.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/widgets/rahbar_empty_state_widget.dart';
@@ -17,6 +21,8 @@ class RahbarArizalarPage extends StatefulWidget {
 }
 
 class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
+  late final StreamSubscription<String> _pushSub;
+
   @override
   void initState() {
     super.initState();
@@ -24,6 +30,17 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
     if (bloc.state is! RahbarArizalarLoaded && bloc.state is! RahbarLoading) {
       bloc.add(LoadRahbarArizalar());
     }
+    _pushSub = arizaPushes.stream.listen((type) {
+      if (type == 'ariza_new' && mounted) {
+        context.read<RahbarBloc>().add(LoadRahbarArizalar());
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pushSub.cancel();
+    super.dispose();
   }
 
   void _showReviewDialog(RahbarArizaEntity ariza, String action) {
@@ -33,7 +50,7 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
@@ -43,7 +60,7 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
             fontSize: 18,
-            color: isApprove ? Colors.green.shade800 : AppColors.error,
+            color: isApprove ? context.colors.success : context.colors.error,
           ),
         ),
         content: Column(
@@ -62,7 +79,7 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
                     }),
               style: GoogleFonts.outfit(
                 fontSize: 14,
-                color: AppColors.textPrimary,
+                color: context.colors.textPrimary,
               ),
             ),
             const SizedBox(height: 14),
@@ -71,36 +88,36 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
               maxLines: 2,
               style: GoogleFonts.outfit(
                 fontSize: 14,
-                color: const Color(0xFF0F172A),
+                color: context.colors.textPrimary,
                 fontWeight: FontWeight.w500,
               ),
-              cursorColor: const Color(0xFF0D6E6E),
+              cursorColor: context.colors.primary,
               decoration: InputDecoration(
                 hintText: context.tr('rahbar_ariza_comment_hint'),
                 hintStyle: GoogleFonts.outfit(
-                  color: const Color(0xFF94A3B8),
+                  color: context.colors.textHint,
                   fontSize: 13,
                 ),
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
+                fillColor: context.colors.surfaceVariant,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 12,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                  borderSide: BorderSide(color: context.colors.border),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                  borderSide: BorderSide(color: context.colors.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
                     color: isApprove
-                        ? const Color(0xFF16A34A)
-                        : AppColors.error,
+                        ? context.colors.success
+                        : context.colors.error,
                     width: 1.8,
                   ),
                 ),
@@ -113,14 +130,14 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               context.tr('no'),
-              style: GoogleFonts.outfit(color: Colors.grey),
+              style: GoogleFonts.outfit(color: context.colors.textSecondary),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: isApprove
                   ? Colors.green.shade700
-                  : AppColors.error,
+                  : context.colors.error,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -151,25 +168,26 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(
           context.tr('rahbar_arizalar_list_title'),
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF0D6E6E),
+            color: context.colors.primary,
             fontSize: 20,
           ),
         ),
       ),
       body: RefreshIndicator(
-        onRefresh: () async =>
-            context.read<RahbarBloc>().add(LoadRahbarArizalar()),
-        color: const Color(0xFF0D6E6E),
+        onRefresh: () => refreshWithMinDelay(
+          () => context.read<RahbarBloc>().add(LoadRahbarArizalar()),
+        ),
+        color: context.colors.primary,
         child: BlocBuilder<RahbarBloc, RahbarState>(
           buildWhen: (prev, curr) =>
               curr is RahbarLoading ||
@@ -177,8 +195,8 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
               curr is RahbarError,
           builder: (context, state) {
             if (state is RahbarLoading) {
-              return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF0D6E6E)),
+              return Center(
+                child: CircularProgressIndicator(color: context.colors.primary),
               );
             } else if (state is RahbarArizalarLoaded) {
               if (state.list.isEmpty) {
@@ -211,32 +229,32 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
                   List<Color> gradientColors;
 
                   if (isRejected) {
-                    badgeColor = const Color(0xFFDC2626); // Qizil matn
-                    badgeBgColor = const Color(0xFFFEE2E2); // Och qizil fon
-                    gradientColors = const [
-                      Color(0xFFEF4444),
+                    badgeColor = context.colors.error; // Qizil matn
+                    badgeBgColor = context.colors.errorSoft; // Och qizil fon
+                    gradientColors = [
+                      context.colors.error,
                       Color(0xFFF87171),
-                      Color(0xFFDC2626),
-                      Color(0xFFEF4444),
+                      context.colors.error,
+                      context.colors.error,
                     ];
                   } else if (isPending) {
                     badgeColor = const Color(0xFFD97706); // Sariq matn
-                    badgeBgColor = const Color(0xFFFEF3C7); // Och sariq fon
-                    gradientColors = const [
-                      Color(0xFFF59E0B),
+                    badgeBgColor = context.colors.warningSoft; // Och sariq fon
+                    gradientColors = [
+                      context.colors.warning,
                       Color(0xFFFBBF24),
                       Color(0xFFD97706),
-                      Color(0xFFF59E0B),
+                      context.colors.warning,
                     ];
                   } else {
                     // Tasdiqlangan (Approved - Zangor / Teal)
-                    badgeColor = const Color(0xFF0D6E6E); // Zangor matn
-                    badgeBgColor = const Color(0xFFCCFBF1); // Och zangor fon
-                    gradientColors = const [
-                      Color(0xFF0D6E6E),
+                    badgeColor = context.colors.primary; // Zangor matn
+                    badgeBgColor = context.colors.primarySoft; // Och zangor fon
+                    gradientColors = [
+                      context.colors.primary,
                       Color(0xFF139797),
                       Color(0xFF26BBAA),
-                      Color(0xFF0D6E6E),
+                      context.colors.primary,
                     ];
                   }
 
@@ -258,7 +276,7 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
                                 style: GoogleFonts.outfit(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: AppColors.textPrimary,
+                                  color: context.colors.textPrimary,
                                 ),
                               ),
                               Container(
@@ -286,14 +304,12 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
                           const SizedBox(height: 6),
                           Text(
                             context.tr('rahbar_ariza_type_days', {
-                              'turi': BackendTextMapper.translateArizaTuriNomi(
-                                item.turiNomi,
-                              ),
+                              'turi': item.turiNomi,
                               'days': '${item.kunlar}',
                             }),
                             style: GoogleFonts.outfit(
                               fontSize: 13,
-                              color: Colors.grey.shade700,
+                              color: context.colors.textSecondary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -305,7 +321,7 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
                             }),
                             style: GoogleFonts.outfit(
                               fontSize: 13,
-                              color: AppColors.textPrimary,
+                              color: context.colors.textPrimary,
                             ),
                           ),
                           if (item.izoh != null && item.izoh!.isNotEmpty) ...[
@@ -316,7 +332,7 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
                               }),
                               style: GoogleFonts.outfit(
                                 fontSize: 12,
-                                color: Colors.grey.shade600,
+                                color: context.colors.textSecondary,
                                 fontStyle: FontStyle.italic,
                               ),
                             ),
@@ -330,9 +346,9 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
                                     onPressed: () =>
                                         _showReviewDialog(item, 'reject'),
                                     style: OutlinedButton.styleFrom(
-                                      foregroundColor: AppColors.error,
-                                      side: const BorderSide(
-                                        color: AppColors.error,
+                                      foregroundColor: context.colors.error,
+                                      side: BorderSide(
+                                        color: context.colors.error,
                                       ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
@@ -384,8 +400,8 @@ class _RahbarArizalarPageState extends State<RahbarArizalarPage> {
                     context.read<RahbarBloc>().add(LoadRahbarArizalar()),
               );
             }
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF0D6E6E)),
+            return Center(
+              child: CircularProgressIndicator(color: context.colors.primary),
             );
           },
         ),

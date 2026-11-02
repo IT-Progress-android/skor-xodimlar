@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/utils/app_error_formatter.dart';
@@ -36,7 +37,6 @@ class _CheckInPageState extends State<CheckInPage> {
 
   bool _engineDown = false;
   String _engineDownMessage = '';
-  bool _fallbackUsed = false;
 
   /// Tizimda xodimning etalon rasmi bormi (profil javobidagi `has_photo`).
   /// Ma'lumot hali yuklanmagan bo'lsa `true` deb olamiz — kamera ochiladi va
@@ -148,6 +148,17 @@ class _CheckInPageState extends State<CheckInPage> {
             listener: (context, state) {
               if (state is FaceVerifyMatched) {
                 _verifyToken = state.entity.verifyToken;
+                if (_verifyToken == null || _verifyToken!.isEmpty) {
+                  // Never submit without a real face-verification token —
+                  // the backend would silently accept it as a pending-review
+                  // request instead of rejecting it, so the app must refuse
+                  // to send it in the first place.
+                  setState(() {
+                    _errorOverride = context.tr('checkin_face_not_matched');
+                    _step = 4;
+                  });
+                  return;
+                }
                 setState(() {
                   _step = 3;
                 });
@@ -198,6 +209,7 @@ class _CheckInPageState extends State<CheckInPage> {
               if (state is CheckLocationSuccess ||
                   state is CheckLocationTooFar ||
                   state is CheckLocationPendingReview ||
+                  state is CheckLocationNotice ||
                   state is AttendanceError) {
                 setState(() {
                   _step = 4;
@@ -229,11 +241,11 @@ class _CheckInPageState extends State<CheckInPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(
+                SizedBox(
                   width: 48,
                   height: 48,
                   child: CircularProgressIndicator(
-                    color: Color(0xFF0D6E6E),
+                    color: context.colors.primary,
                     strokeWidth: 3.5,
                   ),
                 ),
@@ -258,11 +270,11 @@ class _CheckInPageState extends State<CheckInPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(
+                SizedBox(
                   width: 48,
                   height: 48,
                   child: CircularProgressIndicator(
-                    color: Color(0xFF0D6E6E),
+                    color: context.colors.primary,
                     strokeWidth: 3.5,
                   ),
                 ),
@@ -291,58 +303,11 @@ class _CheckInPageState extends State<CheckInPage> {
     setState(() {
       _errorOverride = null;
       _engineDown = false;
-      _fallbackUsed = false;
       _verifyToken = null;
       _lat = null;
       _lng = null;
       _step = 1;
     });
-  }
-
-  Future<void> _useLocationFallback() async {
-    setState(() {
-      _engineDown = false;
-      _step = 3;
-      _errorOverride = null;
-    });
-
-    final prefs = sl<SharedPreferences>();
-    final phone = prefs.getString('phone') ?? prefs.getString('staff_phone');
-    if (phone == null) {
-      setState(() {
-        _errorOverride = context.tr('checkin_user_not_found');
-        _step = 4;
-      });
-      return;
-    }
-    _phone = phone;
-    _staffId = prefs.getInt('staff_id');
-
-    try {
-      final position = await _determinePosition();
-      _lat = position?.latitude ?? 0.0;
-      _lng = position?.longitude ?? 0.0;
-      _isMock = position?.isMocked ?? false;
-    } catch (_) {
-      _lat = 0.0;
-      _lng = 0.0;
-      _isMock = false;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _fallbackUsed = true;
-    });
-
-    if (widget.isCheckIn) {
-      context.read<AttendanceBloc>().add(
-        CheckInSubmit(_phone!, _lat!, _lng!, isMock: _isMock),
-      );
-    } else {
-      context.read<AttendanceBloc>().add(
-        CheckOutSubmit(_phone!, _lat!, _lng!, isMock: _isMock),
-      );
-    }
   }
 
   Widget _buildResult() {
@@ -354,9 +319,7 @@ class _CheckInPageState extends State<CheckInPage> {
     final attState = context.read<AttendanceBloc>().state;
 
     bool success = true;
-    String message = _fallbackUsed
-        ? context.tr('checkin_marked_by_location')
-        : context.tr('checkin_saved_successfully');
+    String message = context.tr('checkin_saved_successfully');
     String subMessage = '';
     bool canRetry = false;
 
@@ -433,9 +396,26 @@ class _CheckInPageState extends State<CheckInPage> {
           : context.tr('checkin_pending_review_note');
     }
 
+    // Dam olish kuni / sessiya allaqachon yopilgan — xato emas, qayta urinish
+    // ham kerak emas.
+    var notice = false;
+    if (attState is CheckLocationNotice) {
+      success = false;
+      notice = true;
+      canRetry = false;
+      final e = attState.entity;
+      message = e.message.isNotEmpty
+          ? AppErrorFormatter.sanitizeMessage(e.message)
+          : context.tr(
+              e.status == 'dam_olish_kuni'
+                  ? 'checkin_day_off'
+                  : 'checkin_session_closed',
+            );
+    }
+
     // On a successful record, show the exact time the server saved (and note if
     // it was already recorded) — §5.2A.
-    if (success && !_fallbackUsed && attState is CheckLocationSuccess) {
+    if (success && attState is CheckLocationSuccess) {
       final e = attState.entity;
       if (e.duplicate) {
         message = e.eventTime != null
@@ -459,8 +439,12 @@ class _CheckInPageState extends State<CheckInPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              success ? Icons.check_circle : Icons.error,
-              color: success ? Colors.green : Colors.red,
+              notice
+                  ? Icons.info
+                  : (success ? Icons.check_circle : Icons.error),
+              color: notice
+                  ? Colors.orange
+                  : (success ? Colors.green : Colors.red),
               size: 80,
             ),
             const SizedBox(height: 24),
@@ -470,7 +454,7 @@ class _CheckInPageState extends State<CheckInPage> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: success ? Colors.black87 : Colors.red.shade900,
+                color: success || notice ? Colors.black87 : Colors.red.shade900,
               ),
             ),
             if (subMessage.isNotEmpty) ...[
@@ -489,7 +473,7 @@ class _CheckInPageState extends State<CheckInPage> {
             if (!success && canRetry)
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D6E6E),
+                  backgroundColor: context.colors.primary,
                   minimumSize: const Size(double.infinity, 50),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -508,15 +492,15 @@ class _CheckInPageState extends State<CheckInPage> {
                     onPressed: () => context.pop(),
                     child: Text(
                       context.tr('checkin_back_to_main'),
-                      style: const TextStyle(
-                        color: Color(0xFF0D6E6E),
+                      style: TextStyle(
+                        color: context.colors.primary,
                         fontSize: 16,
                       ),
                     ),
                   )
                 : ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D6E6E),
+                      backgroundColor: context.colors.primary,
                       minimumSize: const Size(double.infinity, 50),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -542,9 +526,9 @@ class _CheckInPageState extends State<CheckInPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.no_accounts_rounded,
-              color: Color(0xFFF5A623),
+              color: context.colors.accent,
               size: 80,
             ),
             const SizedBox(height: 24),
@@ -564,27 +548,11 @@ class _CheckInPageState extends State<CheckInPage> {
               ),
             ),
             const SizedBox(height: 36),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D6E6E),
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: _useLocationFallback,
-              icon: const Icon(Icons.location_on, color: Colors.white),
-              label: Text(
-                context.tr('checkin_mark_by_location'),
-                style: const TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ),
-            const SizedBox(height: 12),
             TextButton(
               onPressed: () => context.pop(),
               child: Text(
                 context.tr('checkin_back_to_main'),
-                style: const TextStyle(color: Color(0xFF0D6E6E), fontSize: 16),
+                style: TextStyle(color: context.colors.primary, fontSize: 16),
               ),
             ),
           ],
@@ -600,7 +568,7 @@ class _CheckInPageState extends State<CheckInPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.cloud_off, color: Color(0xFFF5A623), size: 80),
+            Icon(Icons.cloud_off, color: context.colors.accent, size: 80),
             const SizedBox(height: 24),
             Text(
               _engineDownMessage.isNotEmpty
@@ -618,16 +586,16 @@ class _CheckInPageState extends State<CheckInPage> {
             const SizedBox(height: 40),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D6E6E),
+                backgroundColor: context.colors.primary,
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: _useLocationFallback,
-              icon: const Icon(Icons.location_on, color: Colors.white),
+              onPressed: _retry,
+              icon: const Icon(Icons.refresh_rounded, color: Colors.white),
               label: Text(
-                context.tr('checkin_mark_by_location'),
+                context.tr('retry'),
                 style: const TextStyle(color: Colors.white, fontSize: 16),
               ),
             ),
@@ -636,7 +604,7 @@ class _CheckInPageState extends State<CheckInPage> {
               onPressed: () => context.pop(),
               child: Text(
                 context.tr('checkin_back_to_main'),
-                style: const TextStyle(color: Color(0xFF0D6E6E), fontSize: 16),
+                style: TextStyle(color: context.colors.primary, fontSize: 16),
               ),
             ),
           ],

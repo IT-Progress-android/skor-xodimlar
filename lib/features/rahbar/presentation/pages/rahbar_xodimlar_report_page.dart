@@ -6,8 +6,10 @@ import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/features/rahbar/data/datasources/rahbar_remote_datasource.dart';
+import 'package:skore_hodimlar/features/rahbar/domain/entities/rahbar_entity.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/widgets/rahbar_empty_state_widget.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/widgets/rahbar_report_view.dart';
+import 'package:skore_hodimlar/features/rahbar/presentation/widgets/rahbar_staff_days_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// §3.2 Xodimlar davomati — aggregate per staff over a date range (default 30 days).
@@ -25,6 +27,31 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
   late DateTime _from;
   late DateTime _to;
   final _searchController = TextEditingController();
+
+  /// Kundalik hisobot kesh: boshqa xodimning kechikishlarini ochganda
+  /// o'sha kunlar qayta yuklanmaydi.
+  final Map<String, Future<List<RahbarStaffAttendanceEntity>>> _kundalikCache =
+      {};
+
+  Future<List<RahbarArizaEntity>>? _arizalarCache;
+
+  Future<List<RahbarArizaEntity>> _loadArizalar() {
+    return _arizalarCache ??= sl<RahbarRemoteDataSource>().getArizalar()
+      ..then<void>((_) {}, onError: (Object _) => _arizalarCache = null);
+  }
+
+  Future<List<RahbarStaffAttendanceEntity>> _loadKundalikDay(DateTime day) {
+    final key = _fmt.format(day);
+    final isToday = key == _fmt.format(DateTime.now());
+    // Bugungi kun hali o'zgarib turadi — keshlamaymiz.
+    if (isToday) return sl<RahbarRemoteDataSource>().getKundalik(date: key);
+    return _kundalikCache.putIfAbsent(key, () {
+      final f = sl<RahbarRemoteDataSource>().getKundalik(date: key);
+      // Xato bo'lsa keyingi safar qayta urinish uchun keshdan olib tashlaymiz.
+      f.then<void>((_) {}, onError: (Object _) => _kundalikCache.remove(key));
+      return f;
+    });
+  }
 
   @override
   void initState() {
@@ -45,12 +72,6 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
       firstDate: DateTime(2024),
       lastDate: DateTime.now(),
       initialDateRange: DateTimeRange(start: _from, end: _to),
-      builder: (context, child) => Theme(
-        data: ThemeData.light().copyWith(
-          colorScheme: const ColorScheme.light(primary: Color(0xFF0D6E6E)),
-        ),
-        child: child!,
-      ),
     );
     if (picked != null) {
       setState(() {
@@ -122,12 +143,12 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
 
     Widget fallbackAvatar() => CircleAvatar(
       radius: radius,
-      backgroundColor: const Color(0xFF0D6E6E).withValues(alpha: 0.12),
+      backgroundColor: context.colors.primary.withValues(alpha: 0.12),
       child: Text(
         name.isNotEmpty ? name[0].toUpperCase() : '?',
         style: GoogleFonts.outfit(
           fontWeight: FontWeight.bold,
-          color: const Color(0xFF0D6E6E),
+          color: context.colors.primary,
           fontSize: radius * 0.75,
         ),
       ),
@@ -155,6 +176,7 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
     final lavozim = (x['lavozim'] ?? x['position'] ?? '').toString();
     final phone = (x['phone'] ?? x['telefon'] ?? '').toString();
     final photo = x['photo']?.toString();
+    final staffId = _parseInt(x['id'] ?? x['xodim_id'] ?? x['staff_id']);
 
     final kelganKun = _parseInt(
       x['kelgan_kun'] ?? x['days_present'] ?? x['kelgan'] ?? x['present'],
@@ -179,255 +201,324 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
           x['delay'],
     );
 
+    // Ish vaqtidagi lokatsiya uzilishlari (faqat qoidabuzarliklar). Backend
+    // maydonni bermasa — ko'rsatilmaydi.
+    final int? uzilishSoni = x['lokatsiya_uzilish_soni'] == null
+        ? null
+        : _parseInt(x['lokatsiya_uzilish_soni']);
+    final uzilishMin = _parseInt(x['lokatsiya_uzilish_min']);
+
     final hours = _getWorkedHours(x);
     final jamiKun = kelganKun + kelmaganKun + arizaliKun;
     final double foiz = jamiKun > 0
         ? (kelganKun / jamiKun * 100).clamp(0.0, 100.0)
         : 0.0;
 
+    VoidCallback? openDays(StaffDaysMode mode) => staffId > 0
+        ? () => RahbarStaffDaysSheet.show(
+            context,
+            staffId: staffId,
+            staffName: name,
+            from: _from,
+            to: _to,
+            initialMode: mode,
+            loadDay: _loadKundalikDay,
+            loadArizalar: _loadArizalar,
+          )
+        : null;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        // Bottom inset keeps the close button above the home indicator.
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          20 + MediaQuery.paddingOf(ctx).bottom,
+        ),
+        decoration: BoxDecoration(
+          color: context.colors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Drag handle
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
+        // Scrollable so the sheet never overflows on short screens.
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: context.colors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Profile Header
-            Row(
-              children: [
-                _buildAvatar(photo, name, radius: 26),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: GoogleFonts.outfit(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 17,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      if (bolim.isNotEmpty || lavozim.isNotEmpty)
+              // Profile Header
+              Row(
+                children: [
+                  _buildAvatar(photo, name, radius: 26),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          '$bolim${lavozim.isNotEmpty ? " · $lavozim" : ""}',
+                          name,
                           style: GoogleFonts.outfit(
-                            fontSize: 13,
-                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 17,
+                            color: context.colors.textPrimary,
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                if (phone.isNotEmpty)
-                  IconButton.filledTonal(
-                    icon: const Icon(
-                      Icons.phone_rounded,
-                      color: Color(0xFF0D6E6E),
-                    ),
-                    onPressed: () async {
-                      final uri = Uri.parse('tel:$phone');
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri);
-                      }
-                    },
-                    tooltip: context.tr('rahbar_call'),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Date Range Bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.date_range_rounded,
-                    size: 18,
-                    color: Color(0xFF0D6E6E),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    context.tr('rahbar_period_label', {
-                      'from': _displayFmt.format(_from),
-                      'to': _displayFmt.format(_to),
-                    }),
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF0D6E6E),
+                        if (bolim.isNotEmpty || lavozim.isNotEmpty)
+                          Text(
+                            '$bolim${lavozim.isNotEmpty ? " · $lavozim" : ""}',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              color: context.colors.textSecondary,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  const Spacer(),
-                  Text(
-                    context.tr('rahbar_attendance_percent', {
-                      'percent': foiz.toStringAsFixed(0),
-                    }),
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: foiz >= 80
-                          ? Colors.green.shade700
-                          : (foiz >= 50
-                                ? Colors.orange.shade800
-                                : Colors.red.shade700),
+                  if (phone.isNotEmpty)
+                    IconButton.filledTonal(
+                      icon: Icon(
+                        Icons.phone_rounded,
+                        color: context.colors.primary,
+                      ),
+                      onPressed: () async {
+                        final uri = Uri.parse('tel:$phone');
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri);
+                        }
+                      },
+                      tooltip: context.tr('rahbar_call'),
                     ),
-                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 14),
+              const SizedBox(height: 16),
 
-            // Progress bar
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: foiz / 100.0,
-                minHeight: 8,
-                backgroundColor: Colors.grey.shade200,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  foiz >= 80
-                      ? const Color(0xFF16A34A)
-                      : (foiz >= 50 ? Colors.orange : Colors.red),
+              // Date Range Bar
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: context.colors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: context.colors.border),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.date_range_rounded,
+                      size: 18,
+                      color: context.colors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      context.tr('rahbar_period_label', {
+                        'from': _displayFmt.format(_from),
+                        'to': _displayFmt.format(_to),
+                      }),
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: context.colors.primary,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      context.tr('rahbar_attendance_percent', {
+                        'percent': foiz.toStringAsFixed(0),
+                      }),
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: foiz >= 80
+                            ? context.colors.success
+                            : (foiz >= 50
+                                  ? Colors.orange.shade800
+                                  : context.colors.error),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-            // Detail KPI Grid
-            Text(
-              context.tr('rahbar_attendance_metrics_title'),
-              style: GoogleFonts.outfit(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 2.2,
-              children: [
-                _buildDetailKpiTile(
-                  icon: Icons.check_circle_rounded,
-                  title: context.tr('rahbar_kpi_days_present_title'),
-                  value: context.tr('ariza_card_days_count', {
-                    'days': '$kelganKun',
-                  }),
-                  color: const Color(0xFF16A34A),
-                ),
-                _buildDetailKpiTile(
-                  icon: Icons.cancel_rounded,
-                  title: context.tr('rahbar_kpi_days_absent_title'),
-                  value: context.tr('ariza_card_days_count', {
-                    'days': '$kelmaganKun',
-                  }),
-                  color: kelmaganKun > 0
-                      ? const Color(0xFFDC2626)
-                      : Colors.grey.shade600,
-                ),
-                _buildDetailKpiTile(
-                  icon: Icons.access_time_filled_rounded,
-                  title: context.tr('rahbar_kpi_days_late_title'),
-                  value: context.tr('ariza_card_days_count', {
-                    'days': '$kechikkanKun',
-                  }),
-                  color: kechikkanKun > 0
-                      ? const Color(0xFFEA580C)
-                      : Colors.grey.shade600,
-                ),
-                _buildDetailKpiTile(
-                  icon: Icons.assignment_rounded,
-                  title: context.tr('rahbar_kpi_days_leave_title'),
-                  value: context.tr('ariza_card_days_count', {
-                    'days': '$arizaliKun',
-                  }),
-                  color: arizaliKun > 0
-                      ? Colors.purple.shade700
-                      : Colors.grey.shade600,
-                ),
-                _buildDetailKpiTile(
-                  icon: Icons.timer_rounded,
-                  title: context.tr('rahbar_kpi_hours_total_title'),
-                  value: _formatHoursDisplay(hours),
-                  color: const Color(0xFF0D6E6E),
-                ),
-                _buildDetailKpiTile(
-                  icon: Icons.warning_amber_rounded,
-                  title: context.tr('rahbar_kpi_delay_total_title'),
-                  value: kechikishDaqiqa > 0
-                      ? (kechikishDaqiqa >= 60
-                            ? context.tr('rahbar_hours_mins_short', {
-                                'hours': '${kechikishDaqiqa ~/ 60}',
-                                'mins': '${kechikishDaqiqa % 60}',
-                              })
-                            : context.tr('rahbar_minutes_plain', {
-                                'mins': '$kechikishDaqiqa',
-                              }))
-                      : context.tr('rahbar_minutes_plain', {'mins': '0'}),
-                  color: kechikishDaqiqa > 0
-                      ? Colors.orange.shade900
-                      : Colors.grey.shade600,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Close button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D6E6E),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(
-                  context.tr('close'),
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
+              // Progress bar
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: foiz / 100.0,
+                  minHeight: 8,
+                  backgroundColor: context.colors.surfaceStrong,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    foiz >= 80
+                        ? context.colors.success
+                        : (foiz >= 50 ? Colors.orange : Colors.red),
                   ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+
+              // Detail KPI Grid
+              Text(
+                context.tr('rahbar_attendance_metrics_title'),
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: context.colors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              GridView(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  mainAxisExtent: MediaQuery.textScalerOf(ctx).scale(34) + 24,
+                ),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _buildDetailKpiTile(
+                    icon: Icons.check_circle_rounded,
+                    title: context.tr('rahbar_kpi_days_present_title'),
+                    value: context.tr('ariza_card_days_count', {
+                      'days': '$kelganKun',
+                    }),
+                    color: context.colors.success,
+                    onTap: openDays(StaffDaysMode.present),
+                  ),
+                  _buildDetailKpiTile(
+                    icon: Icons.cancel_rounded,
+                    title: context.tr('rahbar_kpi_days_absent_title'),
+                    value: context.tr('ariza_card_days_count', {
+                      'days': '$kelmaganKun',
+                    }),
+                    color: kelmaganKun > 0
+                        ? context.colors.error
+                        : context.colors.textSecondary,
+                    onTap: openDays(StaffDaysMode.absent),
+                  ),
+                  _buildDetailKpiTile(
+                    icon: Icons.access_time_filled_rounded,
+                    title: context.tr('rahbar_kpi_days_late_title'),
+                    value: context.tr('ariza_card_days_count', {
+                      'days': '$kechikkanKun',
+                    }),
+                    color: kechikkanKun > 0
+                        ? const Color(0xFFEA580C)
+                        : context.colors.textSecondary,
+                    onTap: openDays(StaffDaysMode.late),
+                  ),
+                  _buildDetailKpiTile(
+                    icon: Icons.assignment_rounded,
+                    title: context.tr('rahbar_kpi_days_leave_title'),
+                    value: context.tr('ariza_card_days_count', {
+                      'days': '$arizaliKun',
+                    }),
+                    color: arizaliKun > 0
+                        ? (context.isDarkMode
+                              ? Colors.purple.shade200
+                              : Colors.purple.shade700)
+                        : context.colors.textSecondary,
+                    onTap: openDays(StaffDaysMode.leave),
+                  ),
+                  _buildDetailKpiTile(
+                    icon: Icons.timer_rounded,
+                    title: context.tr('rahbar_kpi_hours_total_title'),
+                    value: _formatHoursDisplay(hours),
+                    color: context.colors.primary,
+                    onTap: openDays(StaffDaysMode.worked),
+                  ),
+                  _buildDetailKpiTile(
+                    icon: Icons.warning_amber_rounded,
+                    title: context.tr('rahbar_kpi_delay_total_title'),
+                    value: kechikishDaqiqa > 0
+                        ? (kechikishDaqiqa >= 60
+                              ? context.tr('rahbar_hours_mins_short', {
+                                  'hours': '${kechikishDaqiqa ~/ 60}',
+                                  'mins': '${kechikishDaqiqa % 60}',
+                                })
+                              : context.tr('rahbar_minutes_plain', {
+                                  'mins': '$kechikishDaqiqa',
+                                }))
+                        : context.tr('rahbar_minutes_plain', {'mins': '0'}),
+                    color: kechikishDaqiqa > 0
+                        ? Colors.orange.shade900
+                        : context.colors.textSecondary,
+                    onTap: openDays(StaffDaysMode.delay),
+                  ),
+                  if (uzilishSoni != null) ...[
+                    _buildDetailKpiTile(
+                      icon: Icons.location_disabled_rounded,
+                      title: context.tr('rahbar_kpi_outages_title'),
+                      value: context.tr('rahbar_kpi_outages_count', {
+                        'count': '$uzilishSoni',
+                      }),
+                      color: uzilishSoni > 0
+                          ? context.colors.error
+                          : context.colors.textSecondary,
+                    ),
+                    _buildDetailKpiTile(
+                      icon: Icons.timer_off_rounded,
+                      title: context.tr('rahbar_kpi_outage_time_title'),
+                      value: uzilishMin >= 60
+                          ? context.tr('rahbar_hours_mins_short', {
+                              'hours': '${uzilishMin ~/ 60}',
+                              'mins': '${uzilishMin % 60}',
+                            })
+                          : context.tr('rahbar_minutes_plain', {
+                              'mins': '$uzilishMin',
+                            }),
+                      color: uzilishMin > 0
+                          ? context.colors.error
+                          : context.colors.textSecondary,
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Close button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.colors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(
+                    context.tr('close'),
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -438,8 +529,9 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
     required String title,
     required String value,
     required Color color,
+    VoidCallback? onTap,
   }) {
-    return Container(
+    final tile = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
@@ -459,7 +551,7 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                   title,
                   style: GoogleFonts.outfit(
                     fontSize: 11,
-                    color: Colors.grey.shade700,
+                    color: context.colors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                   maxLines: 1,
@@ -478,7 +570,18 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
               ],
             ),
           ),
+          if (onTap != null)
+            Icon(Icons.chevron_right_rounded, color: color, size: 20),
         ],
+      ),
+    );
+    if (onTap == null) return tile;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: tile,
       ),
     );
   }
@@ -486,18 +589,18 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF0D6E6E)),
+        iconTheme: IconThemeData(color: context.colors.primary),
         title: Text(
           context.tr('rahbar_report_xodimlar_title'),
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF0D6E6E),
+            color: context.colors.primary,
             fontSize: 18,
           ),
         ),
@@ -508,19 +611,19 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
               margin: const EdgeInsets.only(right: 12),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D6E6E).withValues(alpha: 0.08),
+                color: context.colors.primary.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: const Color(0xFF0D6E6E).withValues(alpha: 0.25),
+                  color: context.colors.primary.withValues(alpha: 0.25),
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.calendar_month_rounded,
                     size: 16,
-                    color: Color(0xFF0D6E6E),
+                    color: context.colors.primary,
                   ),
                   const SizedBox(width: 5),
                   Text(
@@ -528,7 +631,7 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                     style: GoogleFonts.outfit(
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF0D6E6E),
+                      color: context.colors.primary,
                     ),
                   ),
                 ],
@@ -541,32 +644,32 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
         children: [
           // Search Bar
           Container(
-            color: Colors.white,
+            color: context.colors.surface,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: TextField(
               controller: _searchController,
               onChanged: (_) => setState(() {}),
               style: GoogleFonts.outfit(
                 fontSize: 14,
-                color: AppColors.textPrimary,
+                color: context.colors.textPrimary,
               ),
               decoration: InputDecoration(
                 hintText: context.tr('rahbar_search_staff_name'),
                 hintStyle: GoogleFonts.outfit(
-                  color: AppColors.textHint,
+                  color: context.colors.textHint,
                   fontSize: 13,
                 ),
-                prefixIcon: const Icon(
+                prefixIcon: Icon(
                   Icons.search_rounded,
-                  color: Color(0xFF0D6E6E),
+                  color: context.colors.primary,
                   size: 20,
                 ),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.clear_rounded,
                           size: 18,
-                          color: Colors.grey,
+                          color: context.colors.textSecondary,
                         ),
                         onPressed: () {
                           _searchController.clear();
@@ -575,23 +678,23 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                       )
                     : null,
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
+                fillColor: context.colors.surfaceVariant,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 10,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.divider),
+                  borderSide: BorderSide(color: context.colors.divider),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.divider),
+                  borderSide: BorderSide(color: context.colors.divider),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF0D6E6E),
+                  borderSide: BorderSide(
+                    color: context.colors.primary,
                     width: 2,
                   ),
                 ),
@@ -636,6 +739,7 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                     subtitle: query.isNotEmpty
                         ? context.tr('rahbar_search_no_staff', {'query': query})
                         : context.tr('rahbar_no_staff_data_period'),
+                    refreshable: true,
                   );
                 }
 
@@ -696,7 +800,7 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: context.colors.surface,
                             borderRadius: BorderRadius.circular(18),
                             border: Border.all(
                               color: hasProblem
@@ -732,7 +836,7 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                                           style: GoogleFonts.outfit(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 15,
-                                            color: AppColors.textPrimary,
+                                            color: context.colors.textPrimary,
                                           ),
                                         ),
                                         if (bolim.isNotEmpty ||
@@ -741,7 +845,8 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                                             '$bolim${lavozim.isNotEmpty ? " · $lavozim" : ""}',
                                             style: GoogleFonts.outfit(
                                               fontSize: 12,
-                                              color: Colors.grey.shade600,
+                                              color:
+                                                  context.colors.textSecondary,
                                             ),
                                           ),
                                       ],
@@ -766,10 +871,10 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(
+                                        Icon(
                                           Icons.timer_rounded,
                                           size: 14,
-                                          color: Color(0xFF0D6E6E),
+                                          color: context.colors.primary,
                                         ),
                                         const SizedBox(width: 4),
                                         Text(
@@ -777,7 +882,7 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                                           style: GoogleFonts.outfit(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 13,
-                                            color: const Color(0xFF0D6E6E),
+                                            color: context.colors.primary,
                                           ),
                                         ),
                                       ],
@@ -787,7 +892,7 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                                   Icon(
                                     Icons.chevron_right_rounded,
                                     size: 20,
-                                    color: Colors.grey.shade400,
+                                    color: context.colors.textHint,
                                   ),
                                 ],
                               ),
@@ -802,7 +907,7 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                                       'days': '$kelganKun',
                                     }),
                                     subtitle: context.tr('attendance_present'),
-                                    color: const Color(0xFF16A34A),
+                                    color: context.colors.success,
                                   ),
                                   const SizedBox(width: 6),
                                   _buildStatChip(
@@ -812,8 +917,8 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                                     }),
                                     subtitle: context.tr('attendance_absent'),
                                     color: kelmaganKun > 0
-                                        ? const Color(0xFFDC2626)
-                                        : Colors.grey.shade600,
+                                        ? context.colors.error
+                                        : context.colors.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
                                   _buildStatChip(
@@ -824,7 +929,7 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                                     subtitle: context.tr('rahbar_kpi_late'),
                                     color: kechikkanKun > 0
                                         ? const Color(0xFFEA580C)
-                                        : Colors.grey.shade600,
+                                        : context.colors.textSecondary,
                                   ),
                                   if (arizaliKun > 0) ...[
                                     const SizedBox(width: 6),
@@ -837,7 +942,9 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                                       subtitle: context.tr(
                                         'rahbar_on_leave_short',
                                       ),
-                                      color: Colors.purple.shade700,
+                                      color: (context.isDarkMode
+                                          ? Colors.purple.shade200
+                                          : Colors.purple.shade700),
                                     ),
                                   ],
                                 ],
@@ -882,8 +989,8 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
                   style: GoogleFonts.outfit(
                     fontWeight: FontWeight.bold,
                     fontSize: 12.5,
-                    color: color == Colors.grey.shade600
-                        ? AppColors.textSecondary
+                    color: color == context.colors.textSecondary
+                        ? context.colors.textSecondary
                         : color,
                   ),
                 ),
@@ -894,7 +1001,7 @@ class _RahbarXodimlarReportPageState extends State<RahbarXodimlarReportPage> {
               subtitle,
               style: GoogleFonts.outfit(
                 fontSize: 10.5,
-                color: Colors.grey.shade600,
+                color: context.colors.textSecondary,
               ),
             ),
           ],

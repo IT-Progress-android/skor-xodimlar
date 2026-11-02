@@ -57,8 +57,8 @@ class LocationDisclosureDialog extends StatelessWidget {
     return PopScope(
       canPop: false,
       child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: context.colors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
@@ -75,7 +75,7 @@ class LocationDisclosureDialog extends StatelessWidget {
                     width: 44,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
+                      color: context.colors.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -88,14 +88,14 @@ class LocationDisclosureDialog extends StatelessWidget {
                     width: 68,
                     height: 68,
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
+                      color: context.colors.primary.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       isBackgroundMode
                           ? Icons.share_location_rounded
                           : Icons.location_on_rounded,
-                      color: AppColors.primary,
+                      color: context.colors.primary,
                       size: 36,
                     ),
                   ),
@@ -108,10 +108,10 @@ class LocationDisclosureDialog extends StatelessWidget {
                       ? context.tr('bg_location_disclosure_title')
                       : context.tr('location_disclosure_title'),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: context.colors.textPrimary,
                     letterSpacing: -0.3,
                   ),
                 ),
@@ -121,21 +121,21 @@ class LocationDisclosureDialog extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F8F8),
+                    color: context.colors.primarySoft,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.25),
+                      color: context.colors.primary.withValues(alpha: 0.25),
                     ),
                   ),
                   child: Text(
                     isBackgroundMode
                         ? context.tr('bg_location_disclosure_statement')
                         : context.tr('location_disclosure_statement'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13.5,
                       height: 1.5,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF074E4E),
+                      color: context.colors.primary,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -144,12 +144,14 @@ class LocationDisclosureDialog extends StatelessWidget {
 
                 // Features / Context items
                 _buildFeatureRow(
+                  context,
                   icon: Icons.access_time_filled_rounded,
                   title: context.tr('location_feature_time_title'),
                   desc: context.tr('location_feature_time_desc'),
                 ),
                 const SizedBox(height: 12),
                 _buildFeatureRow(
+                  context,
                   icon: Icons.shield_rounded,
                   title: context.tr('location_feature_privacy_title'),
                   desc: context.tr('location_feature_privacy_desc'),
@@ -160,8 +162,8 @@ class LocationDisclosureDialog extends StatelessWidget {
                 ElevatedButton(
                   onPressed: () => Navigator.of(context).pop(true),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
+                    backgroundColor: context.colors.primary,
+                    foregroundColor: context.colors.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -184,7 +186,7 @@ class LocationDisclosureDialog extends StatelessWidget {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(false),
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary,
+                    foregroundColor: context.colors.textSecondary,
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                   child: Text(
@@ -205,7 +207,8 @@ class LocationDisclosureDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureRow({
+  Widget _buildFeatureRow(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required String desc,
@@ -216,10 +219,10 @@ class LocationDisclosureDialog extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
+            color: context.colors.surfaceStrong,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, size: 18, color: AppColors.primary),
+          child: Icon(icon, size: 18, color: context.colors.primary),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -228,19 +231,19 @@ class LocationDisclosureDialog extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: context.colors.textPrimary,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 desc,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12.5,
                   height: 1.35,
-                  color: AppColors.textSecondary,
+                  color: context.colors.textSecondary,
                 ),
               ),
             ],

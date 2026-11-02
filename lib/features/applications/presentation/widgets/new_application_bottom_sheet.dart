@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
-import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/features/applications/domain/entities/ariza_entity.dart';
 import 'package:skore_hodimlar/features/applications/domain/usecases/get_ariza_types_usecase.dart';
 import 'package:skore_hodimlar/features/applications/domain/usecases/submit_ariza_usecase.dart';
@@ -88,7 +87,7 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.tr('ariza_form_missing_fields')),
-          backgroundColor: AppColors.error,
+          backgroundColor: context.colors.error,
         ),
       );
       return;
@@ -100,7 +99,7 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(context.tr('ariza_form_invalid_date_range')),
-          backgroundColor: AppColors.error,
+          backgroundColor: context.colors.error,
         ),
       );
       return;
@@ -142,7 +141,7 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(context.tr('ariza_sheet_submitted_success')),
-            backgroundColor: AppColors.success,
+            backgroundColor: context.colors.success,
           ),
         );
         Navigator.of(context).pop(true);
@@ -161,8 +160,8 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
     final earliestDate = DateTime.now().subtract(const Duration(days: 30));
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: context.colors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: const EdgeInsets.all(20),
@@ -177,7 +176,7 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                 width: 44,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: context.colors.border,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -193,12 +192,15 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                   style: GoogleFonts.outfit(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF0D6E6E),
+                    color: context.colors.primary,
                   ),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: context.colors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -209,17 +211,17 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.1),
+                  color: context.colors.error.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: AppColors.error.withValues(alpha: 0.3),
+                    color: context.colors.error.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.error_outline_rounded,
-                      color: AppColors.error,
+                      color: context.colors.error,
                       size: 20,
                     ),
                     const SizedBox(width: 10),
@@ -228,7 +230,7 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                         _submitErrorMessage!,
                         style: GoogleFonts.outfit(
                           fontSize: 13,
-                          color: AppColors.error,
+                          color: context.colors.error,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -245,26 +247,26 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D6E6E).withValues(alpha: 0.08),
+                  color: context.colors.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: const Color(0xFF0D6E6E).withValues(alpha: 0.2),
+                    color: context.colors.primary.withValues(alpha: 0.2),
                   ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.info_outline_rounded,
-                      color: Color(0xFF0D6E6E),
+                      color: context.colors.primary,
                       size: 18,
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         context.tr('ariza_sheet_date_range_info'),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textPrimary,
+                          color: context.colors.textPrimary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -281,7 +283,7 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
               style: GoogleFonts.outfit(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-                color: AppColors.textPrimary,
+                color: context.colors.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
@@ -290,21 +292,21 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: context.colors.surfaceVariant,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: const Color(0xFF0D6E6E).withValues(alpha: 0.3),
+                  color: context.colors.primary.withValues(alpha: 0.3),
                 ),
               ),
               child: _isLoadingTypes
-                  ? const Padding(
+                  ? Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       child: Center(
                         child: SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                            color: Color(0xFF0D6E6E),
+                            color: context.colors.primary,
                             strokeWidth: 2,
                           ),
                         ),
@@ -313,31 +315,31 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                   : DropdownButtonHideUnderline(
                       child: DropdownButton<ArizaTuriEntity>(
                         isExpanded: true,
-                        dropdownColor: Colors.white,
+                        dropdownColor: context.colors.surface,
                         borderRadius: BorderRadius.circular(16),
                         value: selectedTuri,
                         hint: Text(
                           context.tr('ariza_form_type_hint'),
-                          style: GoogleFonts.outfit(color: AppColors.textHint),
+                          style: GoogleFonts.outfit(
+                            color: context.colors.textHint,
+                          ),
                         ),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.keyboard_arrow_down_rounded,
-                          color: Color(0xFF0D6E6E),
+                          color: context.colors.primary,
                         ),
                         style: GoogleFonts.outfit(
-                          color: AppColors.textPrimary,
+                          color: context.colors.textPrimary,
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
                         ),
                         items: _turlari.map((item) {
                           return DropdownMenuItem<ArizaTuriEntity>(
                             value: item,
-                              child: Text(
-                                BackendTextMapper.translateArizaTuriNomi(
-                                  item.nomi,
-                                ),
-                                style: GoogleFonts.outfit(
-                                color: const Color(0xFF1A1A1A),
+                            child: Text(
+                              item.nomi,
+                              style: GoogleFonts.outfit(
+                                color: context.colors.textPrimary,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14.5,
                               ),
@@ -369,7 +371,7 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                         style: GoogleFonts.outfit(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
-                          color: AppColors.textPrimary,
+                          color: context.colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -381,14 +383,6 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                             firstDate: earliestDate,
                             lastDate: DateTime.now().add(
                               const Duration(days: 365),
-                            ),
-                            builder: (context, child) => Theme(
-                              data: ThemeData.light().copyWith(
-                                colorScheme: const ColorScheme.light(
-                                  primary: Color(0xFF0D6E6E),
-                                ),
-                              ),
-                              child: child!,
                             ),
                           );
                           if (date != null) {
@@ -407,20 +401,20 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                             vertical: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
+                            color: context.colors.surfaceVariant,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: fromDate != null
-                                  ? const Color(0xFF0D6E6E)
-                                  : AppColors.divider,
+                                  ? context.colors.primary
+                                  : context.colors.divider,
                             ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.calendar_today_rounded,
                                 size: 16,
-                                color: Color(0xFF0D6E6E),
+                                color: context.colors.primary,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -432,8 +426,8 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                                       : context.tr('ariza_form_pick_date'),
                                   style: GoogleFonts.outfit(
                                     color: fromDate != null
-                                        ? AppColors.textPrimary
-                                        : AppColors.textHint,
+                                        ? context.colors.textPrimary
+                                        : context.colors.textHint,
                                     fontWeight: fromDate != null
                                         ? FontWeight.bold
                                         : FontWeight.normal,
@@ -458,7 +452,7 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                         style: GoogleFonts.outfit(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
-                          color: AppColors.textPrimary,
+                          color: context.colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -470,14 +464,6 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                             firstDate: fromDate ?? earliestDate,
                             lastDate: DateTime.now().add(
                               const Duration(days: 365),
-                            ),
-                            builder: (context, child) => Theme(
-                              data: ThemeData.light().copyWith(
-                                colorScheme: const ColorScheme.light(
-                                  primary: Color(0xFF0D6E6E),
-                                ),
-                              ),
-                              child: child!,
                             ),
                           );
                           if (date != null) {
@@ -493,20 +479,20 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                             vertical: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
+                            color: context.colors.surfaceVariant,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: toDate != null
-                                  ? const Color(0xFF0D6E6E)
-                                  : AppColors.divider,
+                                  ? context.colors.primary
+                                  : context.colors.divider,
                             ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.event_available_rounded,
                                 size: 16,
-                                color: AppColors.accent,
+                                color: context.colors.accent,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -522,8 +508,8 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                                               )),
                                   style: GoogleFonts.outfit(
                                     color: (toDate != null || fromDate != null)
-                                        ? AppColors.textPrimary
-                                        : AppColors.textHint,
+                                        ? context.colors.textPrimary
+                                        : context.colors.textHint,
                                     fontWeight:
                                         (toDate != null || fromDate != null)
                                         ? FontWeight.bold
@@ -551,13 +537,13 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0D6E6E).withValues(alpha: 0.12),
+                    color: context.colors.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     context.tr('ariza_form_duration', {'days': '$_kunlar'}),
                     style: GoogleFonts.outfit(
-                      color: const Color(0xFF0D6E6E),
+                      color: context.colors.primary,
                       fontWeight: FontWeight.bold,
                       fontSize: 12.5,
                     ),
@@ -573,7 +559,7 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
               style: GoogleFonts.outfit(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-                color: AppColors.textPrimary,
+                color: context.colors.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
@@ -583,29 +569,29 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
               maxLength: 2000,
               style: GoogleFonts.outfit(
                 fontSize: 14,
-                color: AppColors.textPrimary,
+                color: context.colors.textPrimary,
               ),
               decoration: InputDecoration(
                 hintText: context.tr('ariza_sheet_reason_hint'),
                 hintStyle: GoogleFonts.outfit(
-                  color: AppColors.textHint,
+                  color: context.colors.textHint,
                   fontSize: 13,
                 ),
                 filled: true,
-                fillColor: const Color(0xFFF8FAFC),
+                fillColor: context.colors.surfaceVariant,
                 contentPadding: const EdgeInsets.all(14),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: AppColors.divider),
+                  borderSide: BorderSide(color: context.colors.divider),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: AppColors.divider),
+                  borderSide: BorderSide(color: context.colors.divider),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(
-                    color: Color(0xFF0D6E6E),
+                  borderSide: BorderSide(
+                    color: context.colors.primary,
                     width: 2,
                   ),
                 ),
@@ -619,7 +605,7 @@ class _NewApplicationBottomSheetState extends State<NewApplicationBottomSheet> {
               child: ElevatedButton(
                 onPressed: _isSubmitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D6E6E),
+                  backgroundColor: context.colors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),

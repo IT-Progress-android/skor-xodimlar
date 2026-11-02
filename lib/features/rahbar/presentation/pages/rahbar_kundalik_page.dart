@@ -6,8 +6,11 @@ import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
+import 'package:skore_hodimlar/core/utils/day_change_watcher.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
+import 'package:skore_hodimlar/core/widgets/pull_to_refresh.dart';
 import 'package:skore_hodimlar/features/rahbar/data/datasources/rahbar_remote_datasource.dart';
+import 'package:skore_hodimlar/features/rahbar/data/unassigned_branch.dart';
 import 'package:skore_hodimlar/features/rahbar/domain/entities/rahbar_entity.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/bloc/rahbar_bloc.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/widgets/rahbar_empty_state_widget.dart';
@@ -50,8 +53,20 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
     _selectedDate =
         widget.initialDate ?? DateTime(now.year, now.month, now.day);
     _selectedFilialId = widget.initialFilialId;
+    _dayWatcher = DayChangeWatcher(
+      onNewDay: (today) {
+        if (!mounted) return;
+        // Faqat "bugun" ko'rib turilgan bo'lsa — yangi kunga o'tiladi.
+        final yesterday = DateUtils.addDaysToDate(today, -1);
+        if (!DateUtils.isSameDay(_selectedDate, yesterday)) return;
+        setState(() => _selectedDate = today);
+        _fetchData();
+      },
+    );
     _fetchData();
   }
+
+  late final DayChangeWatcher _dayWatcher;
 
   void _fetchData() {
     context.read<RahbarBloc>().add(
@@ -208,6 +223,13 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
           }
 
           // Agar rawFiliallar ichida biriktirilmagan xodimlar bo'lsa va parsedBranches da id==0 bo'lmasa, qo'shamiz
+          // Filialsiz guruh nomi serverdan (`nom`) olinadi.
+          final serverUnassignedName = unassignedBranchName(rawFiliallar);
+          for (final b in parsedBranches) {
+            if (b['id'] == 0 && serverUnassignedName != null) {
+              b['name'] = serverUnassignedName;
+            }
+          }
           if (!parsedBranches.any((b) => (b['id'] as int) == 0)) {
             final hasUnassignedStaff = rawFiliallar.any((f) {
               final fMap = Map<String, dynamic>.from(f as Map);
@@ -217,7 +239,9 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
             if (hasUnassignedStaff) {
               parsedBranches.add({
                 'id': 0,
-                'name': 'Filial biriktirilmagan',
+                'name':
+                    serverUnassignedName ??
+                    context.tr('rahbar_unassigned_branch'),
                 'lat': 0.0,
                 'lng': 0.0,
                 'radius': 0.0,
@@ -403,12 +427,6 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
       initialDate: _selectedDate,
       firstDate: DateTime(2023),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) => Theme(
-        data: ThemeData.light().copyWith(
-          colorScheme: const ColorScheme.light(primary: Color(0xFF0D6E6E)),
-        ),
-        child: child!,
-      ),
     );
     if (picked != null) {
       setState(() {
@@ -420,6 +438,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
 
   @override
   void dispose() {
+    _dayWatcher.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -568,17 +587,17 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         centerTitle: false,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: Navigator.canPop(context)
             ? IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.arrow_back_ios_new_rounded,
-                  color: Color(0xFF0D6E6E),
+                  color: context.colors.primary,
                 ),
                 onPressed: () => Navigator.pop(context),
               )
@@ -587,15 +606,15 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
           context.tr('rahbar_kundalik_title'),
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF0D6E6E),
+            color: context.colors.primary,
             fontSize: 17,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.chevron_left_rounded,
-              color: Color(0xFF0D6E6E),
+              color: context.colors.primary,
               size: 26,
             ),
             tooltip: context.tr('rahbar_prev_day'),
@@ -614,19 +633,19 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D6E6E).withValues(alpha: 0.08),
+                color: context.colors.primary.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: const Color(0xFF0D6E6E).withValues(alpha: 0.25),
+                  color: context.colors.primary.withValues(alpha: 0.25),
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.calendar_month_rounded,
                     size: 15,
-                    color: Color(0xFF0D6E6E),
+                    color: context.colors.primary,
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -634,7 +653,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                     style: GoogleFonts.outfit(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF0D6E6E),
+                      color: context.colors.primary,
                     ),
                   ),
                 ],
@@ -642,9 +661,9 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
             ),
           ),
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.chevron_right_rounded,
-              color: Color(0xFF0D6E6E),
+              color: context.colors.primary,
               size: 26,
             ),
             tooltip: context.tr('rahbar_next_day'),
@@ -696,7 +715,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
             children: [
               // Search & Filter Header Container
               Container(
-                color: Colors.white,
+                color: context.colors.surface,
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                 child: Column(
                   children: [
@@ -706,25 +725,25 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                       onChanged: (val) => setState(() {}),
                       style: GoogleFonts.outfit(
                         fontSize: 14,
-                        color: AppColors.textPrimary,
+                        color: context.colors.textPrimary,
                       ),
                       decoration: InputDecoration(
                         hintText: context.tr('rahbar_search_hint'),
                         hintStyle: GoogleFonts.outfit(
-                          color: AppColors.textHint,
+                          color: context.colors.textHint,
                           fontSize: 13,
                         ),
-                        prefixIcon: const Icon(
+                        prefixIcon: Icon(
                           Icons.search_rounded,
-                          color: Color(0xFF0D6E6E),
+                          color: context.colors.primary,
                           size: 20,
                         ),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(
+                                icon: Icon(
                                   Icons.clear_rounded,
                                   size: 18,
-                                  color: Colors.grey,
+                                  color: context.colors.textSecondary,
                                 ),
                                 onPressed: () {
                                   _searchController.clear();
@@ -733,27 +752,23 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                               )
                             : null,
                         filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
+                        fillColor: context.colors.surfaceVariant,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 10,
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: AppColors.divider,
-                          ),
+                          borderSide: BorderSide(color: context.colors.divider),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: AppColors.divider,
-                          ),
+                          borderSide: BorderSide(color: context.colors.divider),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF0D6E6E),
+                          borderSide: BorderSide(
+                            color: context.colors.primary,
                             width: 1.8,
                           ),
                         ),
@@ -810,7 +825,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                             label: context.tr('notif_filter_all'),
                             count: countAll,
                             icon: Icons.people_alt_rounded,
-                            activeColor: const Color(0xFF0D6E6E),
+                            activeColor: context.colors.primary,
                           ),
                           const SizedBox(width: 8),
                           _buildFilterChip(
@@ -818,7 +833,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                             label: context.tr('attendance_present'),
                             count: countKelgan,
                             icon: Icons.check_circle_rounded,
-                            activeColor: const Color(0xFF16A34A),
+                            activeColor: context.colors.success,
                           ),
                           const SizedBox(width: 8),
                           _buildFilterChip(
@@ -834,7 +849,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                             label: context.tr('attendance_absent'),
                             count: countKelmagan,
                             icon: Icons.cancel_rounded,
-                            activeColor: Colors.red.shade600,
+                            activeColor: context.colors.error,
                           ),
                           const SizedBox(width: 8),
                           _buildFilterChip(
@@ -842,7 +857,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                             label: context.tr('home_currently_working'),
                             count: countHozirIshda,
                             icon: Icons.business_center_rounded,
-                            activeColor: const Color(0xFF0D6E6E),
+                            activeColor: context.colors.primary,
                           ),
                         ],
                       ),
@@ -854,14 +869,14 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
               // Attendance List
               Expanded(
                 child: RefreshIndicator(
-                  onRefresh: () async => _fetchData(),
-                  color: const Color(0xFF0D6E6E),
+                  onRefresh: () => refreshWithMinDelay(_fetchData),
+                  color: context.colors.primary,
                   child: Builder(
                     builder: (context) {
                       if (state is RahbarLoading) {
-                        return const Center(
+                        return Center(
                           child: CircularProgressIndicator(
-                            color: Color(0xFF0D6E6E),
+                            color: context.colors.primary,
                           ),
                         );
                       } else if (state is RahbarKundalikLoaded) {
@@ -932,9 +947,9 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                           onRefresh: _fetchData,
                         );
                       }
-                      return const Center(
+                      return Center(
                         child: CircularProgressIndicator(
-                          color: Color(0xFF0D6E6E),
+                          color: context.colors.primary,
                         ),
                       );
                     },
@@ -968,7 +983,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor : const Color(0xFFF1F5F9),
+          color: isSelected ? activeColor : context.colors.surfaceStrong,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? activeColor : Colors.transparent,
@@ -990,7 +1005,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
             Icon(
               icon,
               size: 15,
-              color: isSelected ? Colors.white : Colors.grey.shade700,
+              color: isSelected ? Colors.white : context.colors.textSecondary,
             ),
             const SizedBox(width: 6),
             Text(
@@ -998,7 +1013,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
               style: GoogleFonts.outfit(
                 fontSize: 12.5,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? Colors.white : AppColors.textPrimary,
+                color: isSelected ? Colors.white : context.colors.textPrimary,
               ),
             ),
             const SizedBox(width: 5),
@@ -1007,7 +1022,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
               decoration: BoxDecoration(
                 color: isSelected
                     ? Colors.white.withValues(alpha: 0.25)
-                    : Colors.grey.shade300,
+                    : context.colors.border,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -1015,7 +1030,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                 style: GoogleFonts.outfit(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : Colors.grey.shade800,
+                  color: isSelected ? Colors.white : context.colors.textPrimary,
                 ),
               ),
             ),
@@ -1039,18 +1054,18 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0D6E6E) : const Color(0xFFF1F5F9),
+          color: isSelected
+              ? context.colors.primary
+              : context.colors.surfaceStrong,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF0D6E6E)
-                : const Color(0xFFE2E8F0),
+            color: isSelected ? context.colors.primary : context.colors.border,
             width: 1.2,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: const Color(0xFF0D6E6E).withValues(alpha: 0.25),
+                    color: context.colors.primary.withValues(alpha: 0.25),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
@@ -1065,7 +1080,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
               style: GoogleFonts.outfit(
                 fontSize: 12.5,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                color: isSelected ? Colors.white : const Color(0xFF334155),
+                color: isSelected ? Colors.white : context.colors.textPrimary,
               ),
             ),
             const SizedBox(width: 6),
@@ -1074,7 +1089,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
               decoration: BoxDecoration(
                 color: isSelected
                     ? Colors.white.withValues(alpha: 0.25)
-                    : const Color(0xFFE2E8F0),
+                    : context.colors.border,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -1082,7 +1097,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                 style: GoogleFonts.outfit(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : const Color(0xFF334155),
+                  color: isSelected ? Colors.white : context.colors.textPrimary,
                 ),
               ),
             ),
@@ -1107,12 +1122,12 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
     List<Color> borderGradient;
 
     if (isAbsent) {
-      statusColor = const Color(0xFFDC2626);
-      borderGradient = const [
-        Color(0xFFDC2626),
-        Color(0xFFEF4444),
+      statusColor = context.colors.error;
+      borderGradient = [
+        context.colors.error,
+        context.colors.error,
         Color(0xFFB91C1C),
-        Color(0xFFDC2626),
+        context.colors.error,
       ];
     } else if (isLate) {
       statusColor = const Color(0xFFEA580C);
@@ -1123,20 +1138,20 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
         Color(0xFFEA580C),
       ];
     } else if (isPresent) {
-      statusColor = const Color(0xFF16A34A);
-      borderGradient = const [
-        Color(0xFF16A34A),
+      statusColor = context.colors.success;
+      borderGradient = [
+        context.colors.success,
         Color(0xFF22C55E),
         Color(0xFF15803D),
-        Color(0xFF16A34A),
+        context.colors.success,
       ];
     } else {
-      statusColor = Colors.grey.shade600;
+      statusColor = context.colors.textSecondary;
       borderGradient = [
-        Colors.grey.shade400,
-        Colors.grey.shade300,
-        Colors.grey.shade500,
-        Colors.grey.shade400,
+        context.colors.textHint,
+        context.colors.border,
+        context.colors.textHint,
+        context.colors.textHint,
       ];
     }
 
@@ -1176,7 +1191,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                         style: GoogleFonts.outfit(
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
-                          color: AppColors.textPrimary,
+                          color: context.colors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1184,7 +1199,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                         '${item.bolim}${item.lavozim.isNotEmpty ? " · ${item.lavozim}" : ""}',
                         style: GoogleFonts.outfit(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: context.colors.textSecondary,
                         ),
                       ),
                     ],
@@ -1216,9 +1231,9 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: context.colors.surfaceVariant,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: context.colors.border),
               ),
               child: Row(
                 children: [
@@ -1240,8 +1255,8 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                             Icons.login_rounded,
                             size: 16,
                             color: _hasCheckIn(item)
-                                ? const Color(0xFF16A34A)
-                                : Colors.grey.shade600,
+                                ? context.colors.success
+                                : context.colors.textSecondary,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1252,7 +1267,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                               context.tr('rahbar_entry_label'),
                               style: GoogleFonts.outfit(
                                 fontSize: 11,
-                                color: Colors.grey.shade600,
+                                color: context.colors.textSecondary,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -1262,8 +1277,8 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                                 color: _hasCheckIn(item)
-                                    ? const Color(0xFF1E293B)
-                                    : Colors.grey.shade500,
+                                    ? context.colors.textPrimary
+                                    : context.colors.textHint,
                               ),
                             ),
                           ],
@@ -1273,7 +1288,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                   ),
 
                   // Divider
-                  Container(height: 26, width: 1, color: Colors.grey.shade300),
+                  Container(height: 26, width: 1, color: context.colors.border),
                   const SizedBox(width: 12),
 
                   // Chiqish vaqti
@@ -1302,8 +1317,8 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                             color: _hasCheckOut(item)
                                 ? Colors.orange.shade700
                                 : (isAtWork
-                                      ? const Color(0xFF0D6E6E)
-                                      : Colors.grey.shade600),
+                                      ? context.colors.primary
+                                      : context.colors.textSecondary),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1314,7 +1329,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                               context.tr('rahbar_exit_label'),
                               style: GoogleFonts.outfit(
                                 fontSize: 11,
-                                color: Colors.grey.shade600,
+                                color: context.colors.textSecondary,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -1328,10 +1343,10 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                                 color: _hasCheckOut(item)
-                                    ? const Color(0xFF1E293B)
+                                    ? context.colors.textPrimary
                                     : (isAtWork
-                                          ? const Color(0xFF0D6E6E)
-                                          : Colors.grey.shade500),
+                                          ? context.colors.primary
+                                          : context.colors.textHint),
                               ),
                             ),
                           ],
@@ -1348,7 +1363,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0D6E6E).withValues(alpha: 0.08),
+                        color: context.colors.primary.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -1360,7 +1375,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                         style: GoogleFonts.outfit(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF0D6E6E),
+                          color: context.colors.primary,
                         ),
                       ),
                     ),
@@ -1421,10 +1436,10 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D6E6E).withValues(alpha: 0.08),
+                  color: context.colors.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: const Color(0xFF0D6E6E).withValues(alpha: 0.2),
+                    color: context.colors.primary.withValues(alpha: 0.2),
                   ),
                 ),
                 child: Row(
@@ -1432,8 +1447,8 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF0D6E6E),
+                      decoration: BoxDecoration(
+                        color: context.colors.primary,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -1443,7 +1458,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
                       style: GoogleFonts.outfit(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF0D6E6E),
+                        color: context.colors.primary,
                       ),
                     ),
                   ],

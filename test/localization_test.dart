@@ -72,29 +72,30 @@ void main() {
   });
 
   group('LanguageCubit tests', () {
-    test('loads saved language and emits state changes immediately in real time', () async {
-      SharedPreferences.setMockInitialValues({
-        LanguageCubit.prefKey: 'ru',
-      });
-      final prefs = await SharedPreferences.getInstance();
-      final cubit = LanguageCubit(prefs);
+    test(
+      'loads saved language and emits state changes immediately in real time',
+      () async {
+        SharedPreferences.setMockInitialValues({LanguageCubit.prefKey: 'ru'});
+        final prefs = await SharedPreferences.getInstance();
+        final cubit = LanguageCubit(prefs);
 
-      expect(cubit.state, const LanguageState(AppLanguage.russian));
+        expect(cubit.state, const LanguageState(AppLanguage.russian));
 
-      // Change to Kyrgyz
-      await cubit.changeLanguage(AppLanguage.kyrgyz);
-      expect(cubit.state, const LanguageState(AppLanguage.kyrgyz));
-      expect(prefs.getString(LanguageCubit.prefKey), 'ky');
+        // Change to Kyrgyz
+        await cubit.changeLanguage(AppLanguage.kyrgyz);
+        expect(cubit.state, const LanguageState(AppLanguage.kyrgyz));
+        expect(prefs.getString(LanguageCubit.prefKey), 'ky');
 
-      // Change to English
-      await cubit.changeLanguage(AppLanguage.english);
-      expect(cubit.state, const LanguageState(AppLanguage.english));
-      expect(prefs.getString(LanguageCubit.prefKey), 'en');
+        // Change to English
+        await cubit.changeLanguage(AppLanguage.english);
+        expect(cubit.state, const LanguageState(AppLanguage.english));
+        expect(prefs.getString(LanguageCubit.prefKey), 'en');
 
-      // Change to Uzbek
-      await cubit.changeLanguage(AppLanguage.uzbek);
-      expect(cubit.state, const LanguageState(AppLanguage.uzbek));
-      expect(prefs.getString(LanguageCubit.prefKey), 'uz');
-    });
+        // Change to Uzbek
+        await cubit.changeLanguage(AppLanguage.uzbek);
+        expect(cubit.state, const LanguageState(AppLanguage.uzbek));
+        expect(prefs.getString(LanguageCubit.prefKey), 'uz');
+      },
+    );
   });
 }

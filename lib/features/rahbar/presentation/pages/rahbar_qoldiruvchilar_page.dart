@@ -1,9 +1,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/features/rahbar/data/datasources/rahbar_remote_datasource.dart';
+import 'package:skore_hodimlar/features/rahbar/presentation/widgets/rahbar_empty_state_widget.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/widgets/rahbar_report_view.dart';
 
 /// §3.5 Qoldiruvchilar — staff with the most unexcused absences.
@@ -15,7 +17,7 @@ class RahbarQoldiruvchilarPage extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
@@ -23,7 +25,7 @@ class RahbarQoldiruvchilarPage extends StatelessWidget {
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
             fontSize: 18,
-            color: const Color(0xFF0F172A),
+            color: context.colors.textPrimary,
           ),
         ),
         content: Wrap(
@@ -36,10 +38,10 @@ class RahbarQoldiruvchilarPage extends StatelessWidget {
                     s.toString(),
                     style: GoogleFonts.outfit(
                       fontSize: 13,
-                      color: const Color(0xFF334155),
+                      color: context.colors.textPrimary,
                     ),
                   ),
-                  backgroundColor: const Color(0xFFF1F5F9),
+                  backgroundColor: context.colors.surfaceStrong,
                   side: BorderSide.none,
                 ),
               )
@@ -51,7 +53,7 @@ class RahbarQoldiruvchilarPage extends StatelessWidget {
             child: Text(
               context.tr('close'),
               style: GoogleFonts.outfit(
-                color: const Color(0xFF0D6E6E),
+                color: context.colors.primary,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -64,10 +66,10 @@ class RahbarQoldiruvchilarPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         title: Text(context.tr('rahbar_report_qoldiruvchilar_title')),
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
       ),
       body: RahbarReportView(
@@ -75,14 +77,14 @@ class RahbarQoldiruvchilarPage extends StatelessWidget {
         builder: (context, data) {
           final xodimlar = (data['xodimlar'] as List?) ?? const [];
           if (xodimlar.isEmpty) {
-            return ListView(
-              children: [
-                const SizedBox(height: 120),
-                Center(child: Text(context.tr('rahbar_no_absentees'))),
-              ],
+            return RahbarEmptyStateWidget(
+              icon: Icons.verified_rounded,
+              title: context.tr('rahbar_no_absentees'),
+              refreshable: true,
             );
           }
           return ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: xodimlar.length,
             separatorBuilder: (_, _) => const Divider(height: 1),
@@ -101,9 +103,9 @@ class RahbarQoldiruvchilarPage extends StatelessWidget {
                 ).withValues(alpha: 0.12),
                 child: Text(
                   name.isNotEmpty ? name[0].toUpperCase() : '?',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0D6E6E),
+                    color: context.colors.primary,
                   ),
                 ),
               );
@@ -121,7 +123,7 @@ class RahbarQoldiruvchilarPage extends StatelessWidget {
                 title: Text(name),
                 subtitle: Text('${x['bolim'] ?? ''} · ${x['phone'] ?? ''}'),
                 trailing: Chip(
-                  backgroundColor: Colors.red.shade50,
+                  backgroundColor: context.colors.errorSoft,
                   label: Text(
                     context.tr('rahbar_absent_days_count', {
                       'absent': '${x['qoldirgan_kun'] ?? 0}',

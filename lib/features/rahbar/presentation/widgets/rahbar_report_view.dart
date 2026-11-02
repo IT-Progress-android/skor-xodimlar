@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/utils/dio_retry_helper.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/widgets/rahbar_empty_state_widget.dart';
@@ -59,17 +60,20 @@ class RahbarReportViewState extends State<RahbarReportView> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF0D6E6E)),
+      return Center(
+        child: CircularProgressIndicator(color: context.colors.primary),
       );
     }
 
     if (_error != null) {
-      return RahbarEmptyStateWidget(
-        icon: Icons.wifi_off_rounded,
-        title: context.tr('error'),
-        subtitle: _error!,
+      return RefreshIndicator(
         onRefresh: _load,
+        child: RahbarEmptyStateWidget(
+          icon: Icons.wifi_off_rounded,
+          title: context.tr('error_occurred_title'),
+          subtitle: _error!,
+          onRefresh: _load,
+        ),
       );
     }
 
@@ -105,7 +109,7 @@ class RahbarReportViewState extends State<RahbarReportView> {
                 ),
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0D6E6E),
+                    backgroundColor: context.colors.primary,
                     minimumSize: const Size(double.infinity, 48),
                   ),
                   onPressed: () => widget.onGoToDate!(oxirgi),

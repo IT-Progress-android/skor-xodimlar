@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,19 +17,6 @@ class LoadProfile extends ProfileEvent {
   const LoadProfile(this.phone, {this.staffId});
   @override
   List<Object?> get props => [phone, staffId];
-}
-
-class UploadPhotoSubmitted extends ProfileEvent {
-  final String phone;
-  final int staffId;
-  final File photoFile;
-  const UploadPhotoSubmitted({
-    required this.phone,
-    required this.staffId,
-    required this.photoFile,
-  });
-  @override
-  List<Object?> get props => [phone, staffId, photoFile];
 }
 
 class ChangePhoneSubmitted extends ProfileEvent {
@@ -58,8 +43,6 @@ abstract class ProfileState extends Equatable {
 class ProfileInitial extends ProfileState {}
 
 class ProfileLoading extends ProfileState {}
-
-class ProfilePhotoUploading extends ProfileState {}
 
 class ProfilePhoneChanging extends ProfileState {}
 
@@ -111,22 +94,6 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
             'https://bot.timepay.uz/bot/staff/photo/raw?person_code=${profile.personCode}';
         emit(ProfileLoaded(entity: profile, photoUrl: photoUrl));
       }
-    });
-
-    on<UploadPhotoSubmitted>((event, emit) async {
-      emit(ProfilePhotoUploading());
-
-      final result = await repository.uploadPhoto(
-        event.phone,
-        event.staffId,
-        event.photoFile,
-      );
-      result.fold((failure) => emit(ProfileError(failure.message)), (
-        uploadRes,
-      ) {
-        // Re-fetch profile to get updated entity
-        add(LoadProfile(event.phone, staffId: event.staffId));
-      });
     });
 
     on<ChangePhoneSubmitted>((event, emit) async {

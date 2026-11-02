@@ -4,13 +4,46 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skore_hodimlar/core/constants/api_constants.dart';
 import 'package:skore_hodimlar/core/network/dio_client.dart';
 import 'package:skore_hodimlar/core/utils/dio_retry_helper.dart';
+import 'package:skore_hodimlar/features/rahbar/data/location_outage.dart';
 import 'package:skore_hodimlar/features/rahbar/data/models/rahbar_model.dart';
+import 'package:skore_hodimlar/features/rahbar/data/staff_stops.dart';
+import 'package:skore_hodimlar/features/rahbar/domain/entities/rahbar_entity.dart';
 
 abstract class RahbarRemoteDataSource {
   Future<RahbarUserModel> login(String login, String password);
   Future<RahbarDashboardModel> getDashboard({String? date});
   Future<List<RahbarStaffAttendanceModel>> getKundalik({String? date});
-  Future<List<RahbarPayrollItemModel>> getPayroll({String? month});
+
+  /// [davr]: `hafta` | `oy` | `yil`; [sana] — shu davr ichidagi kun.
+  Future<RahbarPayrollReport> getPayroll({String davr = 'oy', String? sana});
+  Future<PayrollSettings> getPayrollSettings();
+
+  /// Javobdagi `amal_qilish_sanasi` (YYYY-MM-DD) yoki `null`.
+  Future<String?> savePayrollSettings(PayrollSettings settings);
+
+  /// Bitta xodim ([xodimIds] bitta element) yoki bir nechtasi/hammasi
+  /// ([hammasi]) uchun to'lov turi, stavka va jarima kalitini saqlaydi.
+  /// Javobdagi sanalar: `amal` — stavka/to'lov turi qachondan (keyingi oy),
+  /// `jarima` — jarima sozlamasi qachondan (odatda darhol). Ommaviy
+  /// saqlashda bo'lmasligi mumkin.
+  Future<({String? amal, String? jarima})> saveStaffPayRule({
+    List<int> xodimIds,
+    bool hammasi,
+    String? tolovTuri,
+    double? stavka,
+    bool? jarimaYoqilgan,
+    double? jarimaSummaShaxsiy,
+    bool? qoshimchaTolanadi,
+    double? qoshimchaStavka,
+    String? birinchiQoidaBoshlanishi,
+  });
+
+  /// Xodim davr ichida qaysi kunlari qancha qo'shimcha ishlagani.
+  Future<List<OvertimeDay>> getOvertimeDays({
+    required int xodimId,
+    required String davr,
+    String? sana,
+  });
   Future<List<RahbarArizaModel>> getArizalar();
   Future<bool> reviewAriza(int arizaId, String action, {String? comment});
 
@@ -34,7 +67,29 @@ abstract class RahbarRemoteDataSource {
     int? bolimId,
     String? holat,
   });
+
+  /// [from] (ISO-8601, offset bilan) — faqat shu vaqtdan keyingi nuqtalar
+  /// (xarita ochiq paytida yangi nuqtalarni olish uchun).
   Future<Map<String, dynamic>> getStaffLocationHistory({
+    required int xodimId,
+    String? sana,
+    String? from,
+  });
+
+  /// Ish vaqtidagi to'xtash joylari. `null` — backend bu endpointni hali
+  /// qo'llamaydi (ilova GPS tarixidan o'zi hisoblaydi).
+  Future<List<StaffStop>?> getStaffStops({required int xodimId, String? sana});
+
+  /// Backend yo'lga moslagan (map matching) marshrut. `null` — backend
+  /// bu endpointni hali qo'llamaydi (ilova real nuqtalarni chizadi).
+  Future<MatchedRoute?> getStaffMatchedRoute({
+    required int xodimId,
+    String? sana,
+  });
+
+  /// Ish vaqtidagi lokatsiya uzilishlari. `null` — backend bu endpointni
+  /// hali qo'llamaydi.
+  Future<List<LocationOutage>?> getLocationOutages({
     required int xodimId,
     String? sana,
   });
@@ -150,33 +205,209 @@ class RahbarRemoteDataSourceImpl implements RahbarRemoteDataSource {
   }
 
   @override
-  Future<List<RahbarPayrollItemModel>> getPayroll({String? month}) async {
+  Future<RahbarPayrollReport> getPayroll({
+    String davr = 'oy',
+    String? sana,
+  }) async {
+    final day = sana ?? DateTime.now().toIso8601String().substring(0, 10);
     return DioRetryHelper.withRetry(() async {
       final res = await dioClient.dio.get(
-        ApiConstants.rahbarBugalteriyaOylik,
-        queryParameters: month != null ? {'oy': month} : null,
+        ApiConstants.rahbarBugalteriya,
+        queryParameters: {'davr': davr, 'sana': day},
+        options: Options(
+          headers: _authHeaders,
+          validateStatus: (s) => s != null && s < 600,
+        ),
+      );
+      // Yangi endpoint hali yo'q bo'lsa — eski oylik hisobot.
+      if (res.statusCode == 404 || res.statusCode == 405) {
+        return RahbarPayrollReport(
+          davr: 'oy',
+          items: await _withFilials(
+            await _getLegacyPayroll(day.substring(0, 7)),
+          ),
+        );
+      }
+      if (res.statusCode == 401) {
+        throw Exception('Sessiya tugadi. Qaytadan kiring.');
+      }
+      if ((res.statusCode ?? 500) >= 400) {
+        throw DioException(
+          requestOptions: res.requestOptions,
+          response: res,
+          type: DioExceptionType.badResponse,
+        );
+      }
+      final data = res.data;
+      return RahbarPayrollReport(
+        davr: (data is Map ? data['davr'] : null)?.toString() ?? davr,
+        from: data is Map ? data['from']?.toString() : null,
+        to: data is Map ? data['to']?.toString() : null,
+        items: await _withFilials(_parsePayrollList(data)),
+      );
+    });
+  }
+
+  /// Backend bugalteriya javobida filial bermasa — filial hisobotidan
+  /// (`filiallar[].xodimlar[]`, xaritadagi kabi) ID yoki ism bo'yicha
+  /// to'ldiriladi. `is_unassigned` filialdagilar — filialsiz.
+  Future<List<RahbarPayrollItemModel>> _withFilials(
+    List<RahbarPayrollItemModel> items,
+  ) async {
+    if (items.isEmpty || items.any((e) => e.filialKey != null)) return items;
+    try {
+      final report = await getFilial();
+      final byId = <int, (int?, String?)>{};
+      final byName = <String, (int?, String?)>{};
+      for (final f in (report['filiallar'] as List?) ?? const []) {
+        if (f is! Map) continue;
+        final unassigned = f['is_unassigned'] == true;
+        final id = int.tryParse('${f['id'] ?? f['filial_id'] ?? ''}');
+        final nom = (f['nom'] ?? f['name'])?.toString().trim();
+        final ref = unassigned ? (null, null) : (id, nom);
+        for (final x in (f['xodimlar'] as List?) ?? const []) {
+          if (x is! Map) continue;
+          final xId = int.tryParse('${x['id'] ?? ''}');
+          if (xId != null && xId > 0) byId[xId] = ref;
+          final xName = (x['name'] ?? x['xodim'] ?? '')
+              .toString()
+              .trim()
+              .toLowerCase();
+          if (xName.isNotEmpty) byName[xName] = ref;
+        }
+      }
+      return [
+        for (final e in items)
+          if (byId[e.id] ?? byName[e.name.trim().toLowerCase()] case (
+            final id,
+            final nom,
+          ))
+            e.withFilial(id, nom)
+          else
+            e,
+      ];
+    } catch (_) {
+      return items;
+    }
+  }
+
+  Future<List<RahbarPayrollItemModel>> _getLegacyPayroll(String month) async {
+    final res = await dioClient.dio.get(
+      ApiConstants.rahbarBugalteriyaOylik,
+      queryParameters: {'oy': month},
+      options: Options(headers: _authHeaders),
+    );
+    return _parsePayrollList(res.data);
+  }
+
+  List<RahbarPayrollItemModel> _parsePayrollList(dynamic data) {
+    List<dynamic> rawList = <dynamic>[];
+    if (data is List) {
+      rawList = data;
+    } else if (data is Map) {
+      rawList =
+          (data['xodimlar'] ??
+                  data['payroll'] ??
+                  data['data'] ??
+                  const <dynamic>[])
+              as List<dynamic>;
+    }
+    return rawList
+        .map(
+          (e) => RahbarPayrollItemModel.fromJson(
+            Map<String, dynamic>.from(e as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<List<OvertimeDay>> getOvertimeDays({
+    required int xodimId,
+    required String davr,
+    String? sana,
+  }) async {
+    final data = await _getMap(
+      '${ApiConstants.rahbarBugalteriyaXodim}/$xodimId/qoshimcha',
+      {'davr': davr, 'sana': ?sana},
+    );
+    final raw = data['kunlar'];
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map<dynamic, dynamic>>()
+        .map((e) => OvertimeDay.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  @override
+  Future<PayrollSettings> getPayrollSettings() async {
+    final data = await _getMap(ApiConstants.rahbarBugalteriyaSozlamalar, null);
+    final inner = data['data'] is Map
+        ? Map<String, dynamic>.from(data['data'] as Map)
+        : data;
+    return PayrollSettings.fromJson(inner);
+  }
+
+  @override
+  Future<String?> savePayrollSettings(PayrollSettings settings) async {
+    final res = await DioRetryHelper.withRetry(
+      () => dioClient.dio.put(
+        ApiConstants.rahbarBugalteriyaSozlamalar,
+        data: settings.toJson(),
+        options: Options(headers: _authHeaders),
+      ),
+    );
+    return _effectiveDate(res.data);
+  }
+
+  String? _effectiveDate(dynamic data, {String key = 'amal_qilish_sanasi'}) {
+    final v = data is Map ? data[key]?.toString() : null;
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
+  @override
+  Future<({String? amal, String? jarima})> saveStaffPayRule({
+    List<int> xodimIds = const [],
+    bool hammasi = false,
+    String? tolovTuri,
+    double? stavka,
+    bool? jarimaYoqilgan,
+    double? jarimaSummaShaxsiy,
+    bool? qoshimchaTolanadi,
+    double? qoshimchaStavka,
+    String? birinchiQoidaBoshlanishi,
+  }) async {
+    final body = <String, dynamic>{
+      'tolov_turi': ?tolovTuri,
+      'stavka': ?stavka,
+      'jarima_yoqilgan': ?jarimaYoqilgan,
+      // 0 — umumiy summaga qaytarish.
+      'jarima_summa_shaxsiy': ?jarimaSummaShaxsiy,
+      'qoshimcha_tolanadi': ?qoshimchaTolanadi,
+      'qoshimcha_stavka': ?qoshimchaStavka,
+      'birinchi_qoida_boshlanishi': ?birinchiQoidaBoshlanishi,
+    };
+    final res = await DioRetryHelper.withRetry(() {
+      if (!hammasi && xodimIds.length == 1) {
+        return dioClient.dio.put(
+          '${ApiConstants.rahbarBugalteriyaXodim}/${xodimIds.first}',
+          data: body,
+          options: Options(headers: _authHeaders),
+        );
+      }
+      return dioClient.dio.post(
+        ApiConstants.rahbarBugalteriyaOmmaviy,
+        data: {
+          ...body,
+          if (hammasi) 'hammasi': true else 'xodim_ids': xodimIds,
+        },
         options: Options(headers: _authHeaders),
       );
-      final data = res.data;
-      List<dynamic> rawList = <dynamic>[];
-      if (data is List) {
-        rawList = data;
-      } else if (data is Map) {
-        rawList =
-            (data['xodimlar'] ??
-                    data['payroll'] ??
-                    data['data'] ??
-                    const <dynamic>[])
-                as List<dynamic>;
-      }
-      return rawList
-          .map(
-            (e) => RahbarPayrollItemModel.fromJson(
-              Map<String, dynamic>.from(e as Map),
-            ),
-          )
-          .toList();
     });
+    return (
+      amal: _effectiveDate(res.data),
+      jarima: _effectiveDate(res.data, key: 'jarima_amal_sanasi'),
+    );
   }
 
   @override
@@ -268,47 +499,87 @@ class RahbarRemoteDataSourceImpl implements RahbarRemoteDataSource {
   Future<Map<String, dynamic>> getStaffLocationHistory({
     required int xodimId,
     String? sana,
+    String? from,
   }) {
-    final querySana =
-        sana ?? DateTime.now().toIso8601String().substring(0, 10);
-    debugPrint(
-      '🌐 [API REQ] GET ${ApiConstants.baseUrl}${ApiConstants.rahbarLokatsiyaTarix}/$xodimId?sana=$querySana',
-    );
+    final querySana = sana ?? DateTime.now().toIso8601String().substring(0, 10);
+    if (from == null) {
+      debugPrint(
+        '🌐 [API REQ] GET ${ApiConstants.baseUrl}${ApiConstants.rahbarLokatsiyaTarix}/$xodimId?sana=$querySana',
+      );
+    }
     return _getMap('${ApiConstants.rahbarLokatsiyaTarix}/$xodimId', {
       'sana': querySana,
       'date': querySana,
+      'from': ?from,
     });
+  }
+
+  @override
+  Future<List<StaffStop>?> getStaffStops({
+    required int xodimId,
+    String? sana,
+  }) async {
+    final day = sana ?? DateTime.now().toIso8601String().substring(0, 10);
+    final data = await _getMap(
+      '${ApiConstants.rahbarLokatsiyaToxtashlar}/$xodimId',
+      {'sana': day},
+    );
+    final raw = data['toxtashlar'];
+    if (raw is! List) return null;
+    final date = DateTime.tryParse(day);
+    return raw
+        .whereType<Map<dynamic, dynamic>>()
+        .map((e) => StaffStop.fromJson(Map<String, dynamic>.from(e), day: date))
+        .whereType<StaffStop>()
+        .toList()
+      ..sort((a, b) => a.from.compareTo(b.from));
+  }
+
+  @override
+  Future<MatchedRoute?> getStaffMatchedRoute({
+    required int xodimId,
+    String? sana,
+  }) async {
+    final day = sana ?? DateTime.now().toIso8601String().substring(0, 10);
+    final data = await _getMap(
+      '${ApiConstants.rahbarLokatsiyaMarshrut}/$xodimId',
+      {'sana': day},
+    );
+    return parseMatchedRouteFull(data, day: DateTime.tryParse(day));
+  }
+
+  @override
+  Future<List<LocationOutage>?> getLocationOutages({
+    required int xodimId,
+    String? sana,
+  }) async {
+    final day = sana ?? DateTime.now().toIso8601String().substring(0, 10);
+    final data = await _getMap(
+      '${ApiConstants.rahbarLokatsiyaUzilishlar}/$xodimId',
+      {'sana': day},
+    );
+    return parseLocationOutages(data);
   }
 
   @override
   Future<List<Map<String, dynamic>>> getLocations() async {
     return DioRetryHelper.withRetry(() async {
+      // Filiallar (geofence: markaz + radius) — `GET /rahbar/lokatsiya`
+      // javobidagi `filiallar` (MOBIL_UCHUN_XODIM_XARITASI.md, 2-bo'lim).
       try {
-        final res = await dioClient.dio.get(
-          '/rahbar/locations',
-          options: Options(headers: _authHeaders),
-        );
-        final data = res.data;
-        if (data is Map && data['data'] is List) {
+        final data = await _getMap(ApiConstants.rahbarLokatsiya, null);
+        if (data['filiallar'] is List) {
           return List<Map<String, dynamic>>.from(
-            (data['data'] as List).map(
+            (data['filiallar'] as List).map(
               (e) => Map<String, dynamic>.from(e as Map),
             ),
-          );
-        } else if (data is List) {
-          return List<Map<String, dynamic>>.from(
-            data.map((e) => Map<String, dynamic>.from(e as Map)),
           );
         }
       } catch (_) {}
 
       try {
-        final res = await dioClient.dio.get(
-          ApiConstants.rahbarHisobotFilial,
-          options: Options(headers: _authHeaders),
-        );
-        final data = res.data;
-        if (data is Map && data['filiallar'] is List) {
+        final data = await _getMap(ApiConstants.rahbarHisobotFilial, null);
+        if (data['filiallar'] is List) {
           return List<Map<String, dynamic>>.from(
             (data['filiallar'] as List).map(
               (e) => Map<String, dynamic>.from(e as Map),
@@ -367,7 +638,7 @@ class RahbarRemoteDataSourceImpl implements RahbarRemoteDataSource {
         'holat': ?holat,
       };
 
-      // 1. Try primary endpoint: /api/rahbar/lokatsiya/live
+      // `GET /rahbar/lokatsiya/live` (MOBIL_UCHUN_XODIM_XARITASI.md, 3-bo'lim).
       try {
         final res = await dioClient.dio.get(
           ApiConstants.rahbarLokatsiyaLive,
@@ -398,43 +669,17 @@ class RahbarRemoteDataSourceImpl implements RahbarRemoteDataSource {
         }
       } catch (_) {}
 
-      // 2. Fallback endpoint per BACKEND_TZ.md: /api/rahbar/staff/live-locations
-      try {
-        const fallbackUrl = '/rahbar/staff/live-locations';
-        final res = await dioClient.dio.get(
-          fallbackUrl,
-          queryParameters: query,
-          options: Options(
-            headers: _authHeaders,
-            validateStatus: (s) => s != null && s < 600,
-          ),
-        );
-
-        if (res.statusCode == 200) {
-          final data = res.data;
-          List<dynamic>? rawList;
-          if (data is Map && data['data'] is List) {
-            rawList = data['data'] as List;
-          } else if (data is Map && data['items'] is List) {
-            rawList = data['items'] as List;
-          } else if (data is List) {
-            rawList = data;
-          }
-          if (rawList != null) {
-            final parsed = List<Map<String, dynamic>>.from(
-              rawList.map((e) => Map<String, dynamic>.from(e as Map)),
-            );
-            _logRahbarLiveLocations(parsed);
-            return parsed;
-          }
-        }
-      } catch (_) {}
-
       return [];
     });
   }
 
+  /// Xarita har yangilanganda butun ro'yxatni yozadi va boshqa loglarni
+  /// (masalan `[TOPSHIRIQ API]`) ko'mib yuboradi. Kerak bo'lganda `true`
+  /// qiling.
+  static const bool _logLiveLocations = false;
+
   void _logRahbarLiveLocations(List<Map<String, dynamic>> items) {
+    if (!_logLiveLocations) return;
     final nowStr = DateTime.now().toString().substring(11, 19);
     final withCoords = items.where((item) {
       final lat =

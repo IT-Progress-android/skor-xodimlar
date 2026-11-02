@@ -9,13 +9,16 @@ import 'package:skore_hodimlar/core/localization/app_language.dart';
 import 'package:skore_hodimlar/core/localization/cubit/language_cubit.dart';
 import 'package:skore_hodimlar/core/network/dio_client.dart';
 
-/// Keeps the staff's language preference in sync with the backend
+/// Keeps the backend's copy of the staff's language preference in sync
 /// (`GET`/`POST /bot/staff/til`), per MOBIL_UCHUN_TIL_QOSHISH.md.
 ///
 /// This only affects *server-sent* text (push notification titles/bodies) —
-/// the app's own UI strings are handled entirely by [LanguageCubit] /
-/// [AppTranslations] and never touch this endpoint. Rahbar (admin) accounts
-/// have no `bot/staff` record, so every call here is a no-op for them.
+/// the app's own UI language is decided ONLY by what's picked in this
+/// install (or the default) via [LanguageCubit] / [AppTranslations], and is
+/// never pulled from the backend: a reinstall, or logging into an existing
+/// account on a new device, always starts at the default until the user
+/// explicitly picks a language here. Rahbar (admin) accounts have no
+/// `bot/staff` record, so every call here is a no-op for them.
 class LanguageSyncService {
   static Future<String?> _staffPhone(SharedPreferences prefs) async {
     final role = prefs.getString('user_role');
@@ -31,9 +34,11 @@ class LanguageSyncService {
     return cleanPhone;
   }
 
-  /// Call on app startup / after login: reads the language the staff last
-  /// saved on the backend (e.g. from another device) and applies it locally.
-  static Future<void> fetchAndApplyFromBackend(LanguageCubit cubit) async {
+  /// Call on app startup / after login: if the backend's saved language for
+  /// this account doesn't match what the app is currently showing, pushes
+  /// the app's language to the backend. Never changes the app's own UI —
+  /// see the class doc for why.
+  static Future<void> reconcileWithBackend(LanguageCubit cubit) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cleanPhone = await _staffPhone(prefs);
@@ -51,14 +56,14 @@ class LanguageSyncService {
 
       if (response.statusCode == 200 && response.data is Map) {
         final til = (response.data as Map)['til']?.toString();
-        if (til == null || til.isEmpty) return;
-        final serverLanguage = AppLanguage.fromCode(til);
-        if (serverLanguage != cubit.state.language) {
-          await cubit.changeLanguage(serverLanguage);
-        }
+        final serverLanguage = (til == null || til.isEmpty)
+            ? null
+            : AppLanguage.fromCode(til);
+        if (serverLanguage == cubit.state.language) return;
+        await pushToBackend(cubit.state.language);
       }
     } catch (e) {
-      debugPrint('⚠️ [LANGUAGE SYNC] Serverdan til olinmadi: $e');
+      debugPrint('⚠️ [LANGUAGE SYNC] Serverdan til solishtirib bo\'lmadi: $e');
     }
   }
 

@@ -38,6 +38,7 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
   bool _saving = false;
   final List<MapObject<dynamic>> _mapObjects = [];
   Uint8List? _centerDotBytes;
+  bool _initialized = false;
 
   @override
   void initState() {
@@ -45,17 +46,23 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
     final lat = widget.initialLat ?? 41.311081;
     final lng = widget.initialLng ?? 69.240562;
     _selectedPoint = Point(latitude: lat, longitude: lng);
-
-    if (widget.staffName != null && widget.staffName!.isNotEmpty) {
-      _nameController.text = context.tr('assign_zone_default_name_staff', {
-        'name': widget.staffName!,
-      });
-    } else {
-      _nameController.text = context.tr('assign_zone_default_name_new');
-    }
-
-    _loadMarkerAndBuild();
     _fetchCurrentLocationIfDefault();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      if (widget.staffName != null && widget.staffName!.isNotEmpty) {
+        _nameController.text = context.tr('assign_zone_default_name_staff', {
+          'name': widget.staffName!,
+        });
+      } else {
+        _nameController.text = context.tr('assign_zone_default_name_new');
+      }
+      _loadMarkerAndBuild();
+    }
   }
 
   Future<void> _loadMarkerAndBuild() async {
@@ -118,9 +125,9 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
       CircleMapObject(
         mapId: const MapObjectId('zone_circle'),
         circle: Circle(center: _selectedPoint, radius: _radius),
-        strokeColor: const Color(0xFF0D6E6E),
+        strokeColor: context.colors.primary,
         strokeWidth: 3.0,
-        fillColor: const Color(0xFF0D6E6E).withValues(alpha: 0.18),
+        fillColor: context.colors.primary.withValues(alpha: 0.18),
       ),
     );
 
@@ -180,7 +187,7 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
               'radius': '${_radius.round()}',
             }),
           ),
-          backgroundColor: const Color(0xFF16A34A),
+          backgroundColor: context.colors.success,
         ),
       );
       Navigator.pop(context, true);
@@ -204,20 +211,20 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF0D6E6E)),
+        iconTheme: IconThemeData(color: context.colors.primary),
         title: Column(
           children: [
             Text(
               context.tr('assign_zone_title'),
               style: GoogleFonts.outfit(
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF0D6E6E),
+                color: context.colors.primary,
                 fontSize: 17,
               ),
             ),
@@ -228,7 +235,7 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
                 }),
                 style: GoogleFonts.outfit(
                   fontSize: 12,
-                  color: Colors.grey.shade600,
+                  color: context.colors.textSecondary,
                 ),
               ),
           ],
@@ -237,19 +244,25 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
       body: Stack(
         children: [
           // 1. In-App Yandex Map
-          YandexMap(
-            mapObjects: _mapObjects,
-            onMapCreated: (controller) async {
-              _controller = controller;
-              unawaited(
-                _controller?.moveCamera(
-                  CameraUpdate.newCameraPosition(
-                    CameraPosition(target: _selectedPoint, zoom: 16.5),
+          RepaintBoundary(
+            child: YandexMap(
+              mode2DEnabled: true,
+              fastTapEnabled: true,
+              tiltGesturesEnabled: false,
+              nightModeEnabled: context.isDarkMode,
+              mapObjects: _mapObjects,
+              onMapCreated: (controller) async {
+                _controller = controller;
+                unawaited(
+                  _controller?.moveCamera(
+                    CameraUpdate.newCameraPosition(
+                      CameraPosition(target: _selectedPoint, zoom: 16.5),
+                    ),
                   ),
-                ),
-              );
-            },
-            onMapTap: _onMapTap,
+                );
+              },
+              onMapTap: _onMapTap,
+            ),
           ),
 
           // 2. Top Instruction Pill
@@ -260,7 +273,7 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.colors.surface,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
@@ -272,9 +285,9 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.touch_app_rounded,
-                    color: Color(0xFF0D6E6E),
+                    color: context.colors.primary,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
@@ -284,7 +297,7 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
                       style: GoogleFonts.outfit(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xFF1E293B),
+                        color: context.colors.textPrimary,
                       ),
                     ),
                   ),
@@ -300,8 +313,8 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
             right: 0,
             child: Container(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: context.colors.surface,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 boxShadow: [
                   BoxShadow(
@@ -321,7 +334,7 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
                       width: 36,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
+                        color: context.colors.border,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -333,22 +346,22 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
                     controller: _nameController,
                     style: GoogleFonts.outfit(
                       fontSize: 14,
-                      color: AppColors.textPrimary,
+                      color: context.colors.textPrimary,
                       fontWeight: FontWeight.bold,
                     ),
                     decoration: InputDecoration(
                       labelText: context.tr('assign_zone_name_field_label'),
                       labelStyle: GoogleFonts.outfit(
-                        color: const Color(0xFF0D6E6E),
+                        color: context.colors.primary,
                         fontSize: 13,
                       ),
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.business_rounded,
-                        color: Color(0xFF0D6E6E),
+                        color: context.colors.primary,
                         size: 20,
                       ),
                       filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
+                      fillColor: context.colors.surfaceVariant,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 10,
@@ -358,12 +371,12 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: AppColors.divider),
+                        borderSide: BorderSide(color: context.colors.divider),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Color(0xFF0D6E6E),
+                        borderSide: BorderSide(
+                          color: context.colors.primary,
                           width: 2,
                         ),
                       ),
@@ -380,6 +393,7 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
                         style: GoogleFonts.outfit(
                           fontWeight: FontWeight.w600,
                           fontSize: 13.5,
+                          color: context.colors.textPrimary,
                         ),
                       ),
                       Container(
@@ -388,7 +402,7 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0D6E6E).withValues(alpha: 0.1),
+                          color: context.colors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -397,7 +411,7 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
                           }),
                           style: GoogleFonts.outfit(
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFF0D6E6E),
+                            color: context.colors.primary,
                             fontSize: 13,
                           ),
                         ),
@@ -406,8 +420,8 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
                   ),
                   SliderTheme(
                     data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: const Color(0xFF0D6E6E),
-                      thumbColor: const Color(0xFF0D6E6E),
+                      activeTrackColor: context.colors.primary,
+                      thumbColor: context.colors.primary,
                       overlayColor: const Color(
                         0xFF0D6E6E,
                       ).withValues(alpha: 0.2),
@@ -429,17 +443,17 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
                   // Coordinates Text
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.location_on_rounded,
                         size: 15,
-                        color: Colors.grey,
+                        color: context.colors.textSecondary,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '${_selectedPoint.latitude.toStringAsFixed(6)}, ${_selectedPoint.longitude.toStringAsFixed(6)}',
                         style: GoogleFonts.outfit(
                           fontSize: 11.5,
-                          color: Colors.grey.shade600,
+                          color: context.colors.textSecondary,
                         ),
                       ),
                     ],
@@ -451,7 +465,7 @@ class _RahbarAssignZonePageState extends State<RahbarAssignZonePage> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D6E6E),
+                        backgroundColor: context.colors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 13),
                         shape: RoundedRectangleBorder(

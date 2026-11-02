@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/widgets/no_internet_view.dart';
 import 'package:skore_hodimlar/core/widgets/notification_bell_button.dart';
+import 'package:skore_hodimlar/core/widgets/pull_to_refresh.dart';
 import 'package:skore_hodimlar/core/widgets/skor_logo_widget.dart';
 import 'package:skore_hodimlar/features/attendance/presentation/bloc/attendance_bloc.dart';
 import 'package:skore_hodimlar/features/attendance/presentation/widgets/attendance_card.dart';
@@ -53,12 +55,12 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F7),
+      backgroundColor: context.colors.background,
       appBar: AppBar(
         centerTitle: true,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
-        backgroundColor: Colors.white,
+        backgroundColor: context.colors.surface,
         elevation: 0,
         leadingWidth: 54,
         leading: Padding(
@@ -84,7 +86,7 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage>
         title: Text(
           context.tr('attendance_history_title'),
           style: GoogleFonts.outfit(
-            color: const Color(0xFF0D6E6E),
+            color: context.colors.primary,
             fontWeight: FontWeight.w900,
             fontSize: 20,
             letterSpacing: 0.5,
@@ -93,9 +95,9 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage>
         actions: const [NotificationBellButton()],
         bottom: TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFF0D6E6E),
-          unselectedLabelColor: Colors.grey.shade600,
-          indicatorColor: const Color(0xFF0D6E6E),
+          labelColor: context.colors.primary,
+          unselectedLabelColor: context.colors.textSecondary,
+          indicatorColor: context.colors.primary,
           indicatorSize: TabBarIndicatorSize.label,
           labelStyle: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
@@ -121,67 +123,85 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage>
   }
 
   Widget _buildList() {
-    return BlocBuilder<AttendanceBloc, AttendanceState>(
-      builder: (context, state) {
-        if (state is AttendanceLoading) {
-          return const Center(
-            child: CircularProgressIndicator(color: Color(0xFF0D6E6E)),
-          );
-        } else if (state is PeriodAttendanceLoaded) {
-          if (state.reports.isEmpty) {
+    return RefreshIndicator(
+      onRefresh: () =>
+          refreshWithMinDelay(() => _loadData(_tabController.index)),
+      color: context.colors.primary,
+      child: BlocBuilder<AttendanceBloc, AttendanceState>(
+        builder: (context, state) {
+          if (state is AttendanceLoading) {
             return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.event_busy, size: 64, color: Colors.grey),
-                    const SizedBox(height: 16),
-                    Text(
-                      context.tr('attendance_history_empty_title'),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+              child: CircularProgressIndicator(color: context.colors.primary),
+            );
+          } else if (state is PeriodAttendanceLoaded) {
+            if (state.reports.isEmpty) {
+              return ScrollableFill(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.event_busy,
+                        size: 64,
+                        color: context.colors.textSecondary,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.tr('attendance_history_empty_desc'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      Text(
+                        context.tr('attendance_history_empty_title'),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: context.colors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.tr('attendance_history_empty_desc'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: context.colors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const PullToRefreshHint(),
+                    ],
+                  ),
                 ),
+              );
+            }
+            return ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(
+                top: 16,
+                bottom: 24,
+                left: 16,
+                right: 16,
+              ),
+              itemCount: state.reports.length,
+              itemBuilder: (context, index) {
+                return AttendanceCard(report: state.reports[index]);
+              },
+            );
+          } else if (state is AttendanceError) {
+            final isNetwork =
+                state.message.toLowerCase().contains('internet') ||
+                state.message.toLowerCase().contains('tarmoq');
+            return ScrollableFill(
+              child: NoInternetView(
+                title: isNetwork
+                    ? context.tr('no_internet_title')
+                    : context.tr('error_occurred_title'),
+                message: state.message,
+                onRetry: () => _loadData(_tabController.index),
+                isCompact: true,
               ),
             );
           }
-          return ListView.builder(
-            padding: const EdgeInsets.only(
-              top: 16,
-              bottom: 24,
-              left: 16,
-              right: 16,
-            ),
-            itemCount: state.reports.length,
-            itemBuilder: (context, index) {
-              return AttendanceCard(report: state.reports[index]);
-            },
-          );
-        } else if (state is AttendanceError) {
-          final isNetwork =
-              state.message.toLowerCase().contains('internet') ||
-              state.message.toLowerCase().contains('tarmoq');
-          return NoInternetView(
-            title: isNetwork
-                ? context.tr('no_internet_title')
-                : context.tr('error_occurred_title'),
-            message: state.message,
-            onRetry: () => _loadData(_tabController.index),
-          );
-        }
-        return const SizedBox();
-      },
+          return const SizedBox();
+        },
+      ),
     );
   }
 }

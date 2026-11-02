@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/core/utils/date_formatter.dart';
@@ -36,32 +37,32 @@ class _AttendanceCardState extends State<AttendanceCard> {
     // Status-based gradient colors
     List<Color> statusGradient;
     if (isPresent && isLate) {
-      statusGradient = const [
-        Color(0xFFF59E0B),
+      statusGradient = [
+        context.colors.warning,
         Color(0xFFFBBF24),
         Color(0xFFD97706),
-        Color(0xFFF59E0B),
+        context.colors.warning,
       ];
     } else if (isPresent) {
-      statusGradient = const [
-        Color(0xFF16A34A),
+      statusGradient = [
+        context.colors.success,
         Color(0xFF22C55E),
         Color(0xFF15803D),
-        Color(0xFF16A34A),
+        context.colors.success,
       ];
     } else if (hasAriza) {
-      statusGradient = const [
-        Color(0xFF0D6E6E),
+      statusGradient = [
+        context.colors.primary,
         Color(0xFF139797),
         Color(0xFF26BBAA),
-        Color(0xFF0D6E6E),
+        context.colors.primary,
       ];
     } else {
-      statusGradient = const [
-        Color(0xFFDC2626),
-        Color(0xFFEF4444),
+      statusGradient = [
+        context.colors.error,
+        context.colors.error,
         Color(0xFFB91C1C),
-        Color(0xFFDC2626),
+        context.colors.error,
       ];
     }
 
@@ -113,10 +114,10 @@ class _AttendanceCardState extends State<AttendanceCard> {
                       color: isPresent && isLate
                           ? Colors.orange.shade800
                           : isPresent
-                          ? Colors.green.shade700
+                          ? context.colors.success
                           : hasAriza
-                          ? const Color(0xFF0D6E6E)
-                          : Colors.red.shade700,
+                          ? context.colors.primary
+                          : context.colors.error,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -127,10 +128,10 @@ class _AttendanceCardState extends State<AttendanceCard> {
                         color: isPresent && isLate
                             ? Colors.orange.shade800
                             : isPresent
-                            ? Colors.green.shade700
+                            ? context.colors.success
                             : hasAriza
-                            ? const Color(0xFF0D6E6E)
-                            : Colors.red.shade700,
+                            ? context.colors.primary
+                            : context.colors.error,
                       ),
                     ),
                   ],
@@ -148,7 +149,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
                           style: GoogleFonts.outfit(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFF0D6E6E),
+                            color: context.colors.primary,
                           ),
                         ),
                         Icon(
@@ -156,7 +157,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
                               ? Icons.keyboard_arrow_up_rounded
                               : Icons.keyboard_arrow_down_rounded,
                           size: 18,
-                          color: const Color(0xFF0D6E6E),
+                          color: context.colors.primary,
                         ),
                       ],
                     ),
@@ -171,18 +172,18 @@ class _AttendanceCardState extends State<AttendanceCard> {
               children: [
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.login_rounded,
                       size: 18,
-                      color: Color(0xFF0D6E6E),
+                      color: context.colors.primary,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       report.checkIn ?? '--:--',
                       style: GoogleFonts.outfit(
                         color: report.checkIn != null
-                            ? Colors.black87
-                            : Colors.grey,
+                            ? context.colors.textPrimary
+                            : context.colors.textSecondary,
                         fontWeight: report.checkIn != null
                             ? FontWeight.bold
                             : FontWeight.normal,
@@ -190,18 +191,18 @@ class _AttendanceCardState extends State<AttendanceCard> {
                       ),
                     ),
                     const SizedBox(width: 20),
-                    const Icon(
+                    Icon(
                       Icons.logout_rounded,
                       size: 18,
-                      color: Color(0xFFF5A623),
+                      color: context.colors.accent,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       report.checkOut ?? '--:--',
                       style: GoogleFonts.outfit(
                         color: report.checkOut != null
-                            ? Colors.black87
-                            : Colors.grey,
+                            ? context.colors.textPrimary
+                            : context.colors.textSecondary,
                         fontWeight: report.checkOut != null
                             ? FontWeight.bold
                             : FontWeight.normal,
@@ -234,10 +235,10 @@ class _AttendanceCardState extends State<AttendanceCard> {
                             : context.tr('attendance_absent'),
                         style: GoogleFonts.outfit(
                           color: isPresent
-                              ? Colors.green.shade800
+                              ? context.colors.success
                               : (hasAriza
-                                    ? const Color(0xFF0D6E6E)
-                                    : Colors.red.shade800),
+                                    ? context.colors.primary
+                                    : context.colors.error),
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -296,7 +297,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
                     }),
                     style: GoogleFonts.outfit(
                       fontSize: 12,
-                      color: Colors.grey.shade700,
+                      color: context.colors.textSecondary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -336,19 +337,19 @@ class _AttendanceCardState extends State<AttendanceCard> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D6E6E).withValues(alpha: 0.08),
+                  color: context.colors.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: const Color(0xFF0D6E6E).withValues(alpha: 0.2),
+                    color: context.colors.primary.withValues(alpha: 0.2),
                   ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.flight_takeoff_rounded,
                       size: 14,
-                      color: Color(0xFF0D6E6E),
+                      color: context.colors.primary,
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -356,7 +357,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
                       style: GoogleFonts.outfit(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: const Color(0xFF0D6E6E),
+                        color: context.colors.primary,
                       ),
                     ),
                     if (report.ariza!.izoh != null &&
@@ -365,7 +366,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
                         ' · ${report.ariza!.izoh}',
                         style: GoogleFonts.outfit(
                           fontSize: 11,
-                          color: Colors.grey,
+                          color: context.colors.textSecondary,
                         ),
                       ),
                     ],
@@ -387,7 +388,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
                   style: GoogleFonts.outfit(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF1A1A1A),
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -400,11 +401,11 @@ class _AttendanceCardState extends State<AttendanceCard> {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
+                      color: context.colors.surfaceVariant,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: isComplete
-                            ? Colors.grey.shade200
+                            ? context.colors.surfaceStrong
                             : Colors.orange.withValues(alpha: 0.3),
                       ),
                     ),
@@ -420,11 +421,14 @@ class _AttendanceCardState extends State<AttendanceCard> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            '${s.checkIn ?? '—'}  →  ${s.checkOut ?? '—'}',
+                            // Avtomatik yopilgan sessiyadagi vaqt — smena
+                            // tugashi, xodim chiqqan vaqt emas.
+                            '${s.checkIn ?? '—'}  →  '
+                            '${s.autoKetdi ? '—' : (s.checkOut ?? '—')}',
                             style: GoogleFonts.outfit(
                               fontWeight: FontWeight.bold,
                               fontSize: 13.5,
-                              color: const Color(0xFF1A1A1A),
+                              color: context.colors.textPrimary,
                             ),
                           ),
                         ),
@@ -433,6 +437,8 @@ class _AttendanceCardState extends State<AttendanceCard> {
                               ? context.tr('attendance_session_minutes', {
                                   'minutes': '${s.minutes ?? 0}',
                                 })
+                              : s.autoKetdi
+                              ? context.tr('attendance_session_auto_closed')
                               : (s.note ??
                                     context.tr('attendance_session_open')),
                           style: GoogleFonts.outfit(
@@ -441,7 +447,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
                                 ? FontWeight.w600
                                 : FontWeight.bold,
                             color: isComplete
-                                ? const Color(0xFF0D6E6E)
+                                ? context.colors.primary
                                 : Colors.orange.shade900,
                           ),
                         ),
@@ -459,7 +465,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
                   style: GoogleFonts.outfit(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
-                    color: const Color(0xFF1A1A1A),
+                    color: context.colors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -484,8 +490,8 @@ class _AttendanceCardState extends State<AttendanceCard> {
                           isIn ? Icons.login_rounded : Icons.logout_rounded,
                           size: 16,
                           color: isIn
-                              ? const Color(0xFF0D6E6E)
-                              : const Color(0xFFF5A623),
+                              ? context.colors.primary
+                              : context.colors.accent,
                         ),
                         const SizedBox(width: 8),
                         Text(
@@ -498,8 +504,8 @@ class _AttendanceCardState extends State<AttendanceCard> {
                             fontWeight: FontWeight.bold,
                             fontSize: 12.5,
                             color: isIn
-                                ? const Color(0xFF0D6E6E)
-                                : const Color(0xFFF5A623),
+                                ? context.colors.primary
+                                : context.colors.accent,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -508,7 +514,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
                           style: GoogleFonts.outfit(
                             fontWeight: FontWeight.w600,
                             fontSize: 12.5,
-                            color: const Color(0xFF1A1A1A),
+                            color: context.colors.textPrimary,
                           ),
                         ),
                         if (ev.device != null && ev.device!.isNotEmpty) ...[
@@ -519,7 +525,7 @@ class _AttendanceCardState extends State<AttendanceCard> {
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.outfit(
                                 fontSize: 11,
-                                color: Colors.grey.shade600,
+                                color: context.colors.textSecondary,
                               ),
                             ),
                           ),

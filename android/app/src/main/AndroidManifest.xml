@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.CAMERA"/>
@@ -15,23 +16,25 @@
     <application
         android:label="Skor Xodimlar"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon">
-        <!-- Scheduled notifications receivers for flutter_local_notifications -->
-        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
-        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED"/>
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
-            </intent-filter>
-        </receiver>
+        android:icon="@mipmap/launcher_icon"
+        android:allowBackup="false">
+        <!-- Without this, Android's Auto Backup silently restores the app's
+             SharedPreferences (language pref, saved phone, auth token) after
+             a reinstall from Google Drive backup, making a "delete and
+             reinstall" not actually start fresh — see language-sync fix. -->
+        <!-- Ilova yopiq bo'lsa va push'da `android.channel_id` bo'lmasa, tizim
+             shu kanalni ishlatadi. Standart ovozli kanal: maxsus davomat ovozi
+             faqat backend aniq `davomat_voice_channel_v2` yuborganda chaladi. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="davomat_voice_channel_v2" />
+            android:value="general_channel" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@mipmap/launcher_icon" />
+            android:resource="@drawable/ic_stat_skor" />
+        <!-- GPS fon servisi bildirishnomasi belgisi (flutter_foreground_task). -->
+        <meta-data
+            android:name="uz.skor.hodimlar.NOTIFICATION_ICON"
+            android:resource="@drawable/ic_stat_skor" />
         <meta-data
             android:name="com.yandex.android.maps.MAPKIT_API_KEY"
             android:value="4a1c79e4-1372-4abd-af85-7b7e6690d8c4"/>
@@ -87,6 +90,21 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- Autostart / batareya sozlamalari ekranlari (BackgroundSettingsChannel) -->
+        <package android:name="com.miui.securitycenter" />
+        <package android:name="com.miui.powerkeeper" />
+        <package android:name="com.huawei.systemmanager" />
+        <package android:name="com.coloros.safecenter" />
+        <package android:name="com.oppo.safe" />
+        <package android:name="com.vivo.permissionmanager" />
+        <package android:name="com.iqoo.secure" />
+        <package android:name="com.letv.android.letvsafe" />
+        <package android:name="com.asus.mobilemanager" />
+        <!-- Android 11+: canLaunchUrl https havolani (Play Market) ko'ra olishi uchun -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.DIAL" />
             <data android:scheme="tel" />

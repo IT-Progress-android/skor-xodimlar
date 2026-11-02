@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:skore_hodimlar/core/localization/app_language.dart';
 import 'package:skore_hodimlar/core/localization/app_translations.dart';
+import 'package:skore_hodimlar/core/localization/task_translations.dart';
 
 class AppLocalizations {
   final Locale locale;
@@ -37,7 +38,17 @@ class AppLocalizations {
         AppTranslations.translations['uz'] ??
         {};
 
-    String value = dict[key] ?? AppTranslations.translations['uz']?[key] ?? key;
+    final taskDict =
+        TaskTranslations.translations[langCode] ??
+        TaskTranslations.translations['uz'] ??
+        {};
+
+    String value =
+        dict[key] ??
+        taskDict[key] ??
+        AppTranslations.translations['uz']?[key] ??
+        TaskTranslations.translations['uz']?[key] ??
+        key;
 
     if (params != null && params.isNotEmpty) {
       params.forEach((paramKey, paramValue) {
