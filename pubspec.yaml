@@ -1,7 +1,7 @@
 name: skore_hodimlar
 description: "Skor Xodimlar — Xodimlar davomati tizimi"
 publish_to: 'none'
-version: 1.0.23+39
+version: 1.0.23+41
 
 environment:
   sdk: ^3.12.1

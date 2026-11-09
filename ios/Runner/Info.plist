@@ -4,20 +4,10 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Ilovani tez va xavfsiz ochish uchun Face ID ishlatiladi.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Davomatni tasdiqlash uchun yuzingizni suratga olishda kameradan foydalaniladi.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Ish joyida ekanligingizni tasdiqlash va real-time tracking uchun joylashuvingiz aniqlanadi.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Ish vaqtida real-time tracking va davomat uchun geolokatsiyadan foydalaniladi.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Profil va hujjat rasmlarini tanlash uchun galereyadan foydalaniladi.</string>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>uz</string>
 	<key>CFBundleAllowMixedLocalizations</key>
 	<true/>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>uz</string>
 	<key>CFBundleDisplayName</key>
 	<string>Skor Xodimlar</string>
 	<key>CFBundleExecutable</key>
@@ -36,8 +26,24 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Davomatni tasdiqlash uchun yuzingizni suratga olishda kameradan foydalaniladi.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Ilovani tez va xavfsiz ochish uchun Face ID ishlatiladi.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Ish vaqtida real-time tracking va davomat uchun geolokatsiyadan foydalaniladi.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Ish joyida ekanligingizni tasdiqlash va real-time tracking uchun joylashuvingiz aniqlanadi.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Profil va hujjat rasmlarini tanlash uchun galereyadan foydalaniladi.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -61,6 +67,12 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+		<string>location</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -77,16 +89,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-		<string>remote-notification</string>
-		<string>location</string>
-	</array>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>tel</string>
 	</array>
 </dict>
 </plist>

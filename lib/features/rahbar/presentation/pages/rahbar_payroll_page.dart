@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/app_day.dart';
 import 'package:skore_hodimlar/core/utils/dio_retry_helper.dart';
 import 'package:skore_hodimlar/core/utils/money_input_formatter.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
@@ -56,6 +57,7 @@ class _RahbarPayrollPageState extends State<RahbarPayrollPage> {
   @override
   void initState() {
     super.initState();
+    AppDay.instance.addListener(_onNewDay);
     _loadSettings();
     final bloc = context.read<RahbarBloc>();
     final state = bloc.state;
@@ -77,6 +79,12 @@ class _RahbarPayrollPageState extends State<RahbarPayrollPage> {
     );
   }
 
+  @override
+  void dispose() {
+    AppDay.instance.removeListener(_onNewDay);
+    super.dispose();
+  }
+
   void _load() {
     context.read<RahbarBloc>().add(
       LoadRahbarPayroll(
@@ -95,6 +103,43 @@ class _RahbarPayrollPageState extends State<RahbarPayrollPage> {
       };
     });
     _load();
+  }
+
+  /// Joriy davr ko'rib turilgan bo'lsa — 00:00 da yangi kunga o'tiladi
+  /// (oy/hafta/yil almashsa — yangi davrga). Yashirin tabda faqat sana
+  /// yangilanadi: RahbarBloc umumiy, ko'ringanda yuklanadi.
+  void _onNewDay() {
+    final day = AppDay.instance;
+    final prev = day.previous;
+    if (!mounted || prev == null || !_samePeriod(_anchor, prev)) return;
+    setState(() => _anchor = day.today);
+    if (TickerMode.valuesOf(context).enabled) {
+      _reloadAll();
+    } else {
+      _reloadWhenShown = true;
+    }
+  }
+
+  bool _reloadWhenShown = false;
+
+  bool _samePeriod(DateTime a, DateTime b) => switch (_davr) {
+    'hafta' => DateUtils.isSameDay(
+      a.subtract(Duration(days: a.weekday - 1)),
+      b.subtract(Duration(days: b.weekday - 1)),
+    ),
+    'yil' => a.year == b.year,
+    _ => a.year == b.year && a.month == b.month,
+  };
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // TickerMode'ga bog'lanadi: tab/sahifa ko'ringanda qayta chaqiriladi.
+    final visible = TickerMode.valuesOf(context).enabled;
+    if (_reloadWhenShown && visible) {
+      _reloadWhenShown = false;
+      _reloadAll();
+    }
   }
 
   bool get _canGoForward {

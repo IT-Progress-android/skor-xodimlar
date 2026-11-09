@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:skore_hodimlar/core/utils/app_day.dart';
 import 'package:skore_hodimlar/features/tasks/data/datasources/task_remote_datasource.dart';
 import 'package:skore_hodimlar/features/tasks/data/models/task_models.dart';
 import 'package:skore_hodimlar/features/tasks/presentation/cubit/staff_tasks_cubit.dart';
@@ -91,7 +92,23 @@ class TaskStatsCubit extends Cubit<TaskStatsState> {
   final TaskRemoteDataSource ds;
   int _req = 0;
 
-  TaskStatsCubit(this.ds) : super(TaskStatsState(sana: DateTime.now()));
+  TaskStatsCubit(this.ds) : super(TaskStatsState(sana: DateTime.now())) {
+    AppDay.instance.addListener(_onNewDay);
+  }
+
+  /// Joriy davr ko'rib turilgan bo'lsa — 00:00 da yangi kunga o'tadi.
+  void _onNewDay() {
+    final day = AppDay.instance;
+    if (isClosed || !day.wasToday(state.sana)) return;
+    emit(state.copyWith(sana: day.today));
+    load();
+  }
+
+  @override
+  Future<void> close() {
+    AppDay.instance.removeListener(_onNewDay);
+    return super.close();
+  }
 
   void setPeriod(TaskPeriod p) {
     if (p == state.period) return;
@@ -232,7 +249,23 @@ class StaffHistoryCubit extends Cubit<StaffHistoryState> {
     required TaskPeriod period,
     required DateTime sana,
     String holat = 'hammasi',
-  }) : super(StaffHistoryState(period: period, sana: sana, holat: holat));
+  }) : super(StaffHistoryState(period: period, sana: sana, holat: holat)) {
+    AppDay.instance.addListener(_onNewDay);
+  }
+
+  /// Joriy davr ko'rib turilgan bo'lsa — 00:00 da yangi kunga o'tadi.
+  void _onNewDay() {
+    final day = AppDay.instance;
+    if (isClosed || !day.wasToday(state.sana)) return;
+    emit(state.copyWith(sana: day.today));
+    load();
+  }
+
+  @override
+  Future<void> close() {
+    AppDay.instance.removeListener(_onNewDay);
+    return super.close();
+  }
 
   void setPeriod(TaskPeriod p) {
     if (p == state.period) return;

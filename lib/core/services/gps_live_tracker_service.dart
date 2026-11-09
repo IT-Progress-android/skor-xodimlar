@@ -125,6 +125,19 @@ DateTime resolveWorkSessionEnd(String? autoKetdiAt, DateTime now) {
 /// faqat shu vaqtda.
 Future<bool> isWorkSessionOpen() => _workSessionOpen();
 
+/// Fon servisining zona holati (ichkarida/qaysi zona). Sessiya yopilganda
+/// va yangisi boshlanganda tozalanadi: aks holda ertasi kuni kechagi
+/// "ichkarida" holati qolib, ENTER yuborilmasdi yoki kechagi zona ID'si
+/// bilan EXIT ketardi.
+const fgsInsideZoneKey = 'fgs_inside_zone';
+const fgsCurrentZoneKey = 'fgs_current_zone_id';
+
+@visibleForTesting
+Future<void> clearFgsZoneState(SharedPreferences prefs) async {
+  await prefs.remove(fgsInsideZoneKey);
+  await prefs.remove(fgsCurrentZoneKey);
+}
+
 Future<bool> _workSessionOpen() async {
   try {
     final until =
@@ -148,8 +161,8 @@ class _GpsTaskHandler extends TaskHandler {
   /// `getData` har chaqirilganda SharedPreferences'ni qayta yuklaydi, umumiy
   /// kalit bo'lsa asosiy ilova yozgan "chiqdi" holati fon servisining
   /// o'zini EXIT/ENTER yuborishdan to'xtatib qo'yardi.
-  static const _fgsInsideKey = 'fgs_inside_zone';
-  static const _fgsZoneKey = 'fgs_current_zone_id';
+  static const _fgsInsideKey = fgsInsideZoneKey;
+  static const _fgsZoneKey = fgsCurrentZoneKey;
 
   /// Uzluksiz GPS oqimidan kelgan eng so'nggi o'lchov (har soniyada).
   StreamSubscription<Position>? _stream;
@@ -260,6 +273,7 @@ class _GpsTaskHandler extends TaskHandler {
       // navbatdagi nuqtalarni yuborib, servisni o'chiramiz.
       if (!await _workSessionOpen()) {
         debugPrint('⏹️ [GPS FON] ish sessiyasi yopiq — servis to\'xtatiladi');
+        await clearFgsZoneState(prefs);
         await _queuePending(phone, pos: null);
         await _flushQueue(token);
         await FlutterForegroundTask.stopService();
@@ -951,6 +965,13 @@ class GpsLiveTrackerService {
     } catch (_) {}
 
     if (active && end.isAfter(now)) {
+      // Yangi sessiya (fon servisi ishlamayapti) — zona holati noldan.
+      // Servis ishlab tursa tegilmaydi: kun o'rtasida takroriy ENTER ketmasin.
+      try {
+        if (!await FlutterForegroundTask.isRunningService) {
+          await clearFgsZoneState(sl<SharedPreferences>());
+        }
+      } catch (_) {}
       await startTracking();
       return;
     }
@@ -1373,6 +1394,9 @@ class GpsLiveTrackerService {
     try {
       await FlutterForegroundTask.saveData(key: workSessionUntilKey, value: 0);
       await FlutterForegroundTask.stopService();
+    } catch (_) {}
+    try {
+      await clearFgsZoneState(sl<SharedPreferences>());
     } catch (_) {}
 
     if (_phone != null) {

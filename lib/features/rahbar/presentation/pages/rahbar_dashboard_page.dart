@@ -12,8 +12,8 @@ import 'package:skore_hodimlar/core/security/app_lock_service.dart';
 import 'package:skore_hodimlar/core/security/security_settings_page.dart';
 import 'package:skore_hodimlar/core/services/fcm_service.dart';
 import 'package:skore_hodimlar/core/theme/theme_cubit.dart';
+import 'package:skore_hodimlar/core/utils/app_day.dart';
 import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
-import 'package:skore_hodimlar/core/utils/day_change_watcher.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
 import 'package:skore_hodimlar/core/widgets/language_picker_bottom_sheet.dart';
 import 'package:skore_hodimlar/core/widgets/pull_to_refresh.dart';
@@ -54,20 +54,37 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
   /// 00:00 da (yoki ilova ertalab orqa fondan qaytganda) "bugun" ko'rib
   /// turilgan bo'lsa — yangi kunga o'tiladi. Kalendardan tanlangan boshqa
   /// sana o'zgarmaydi.
-  late final DayChangeWatcher _dayWatcher = DayChangeWatcher(
-    onNewDay: (today) {
-      if (!mounted) return;
-      final yesterday = DateUtils.addDaysToDate(today, -1);
-      if (!DateUtils.isSameDay(_selectedDate, yesterday)) return;
-      setState(() => _selectedDate = today);
+  void _onNewDay() {
+    if (!mounted) return;
+    final day = AppDay.instance;
+    if (!day.wasToday(_selectedDate)) return;
+    setState(() => _selectedDate = day.today);
+    // RahbarBloc tablar orasida umumiy: yashirin sahifa yuklasa, ko'rinib
+    // turgan tab shimmer'da qolardi — u holda sahifa ko'ringanda yuklanadi.
+    if (TickerMode.valuesOf(context).enabled) {
       _loadDashboard();
-    },
-  );
+    } else {
+      _reloadWhenShown = true;
+    }
+  }
+
+  bool _reloadWhenShown = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // TickerMode'ga bog'lanadi: tab/sahifa ko'ringanda qayta chaqiriladi.
+    final visible = TickerMode.valuesOf(context).enabled;
+    if (_reloadWhenShown && visible) {
+      _reloadWhenShown = false;
+      _loadDashboard();
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _dayWatcher;
+    AppDay.instance.addListener(_onNewDay);
     rahbarOpenRequest.addListener(_onOpenRequest);
     WidgetsBinding.instance.addPostFrameCallback((_) => _onOpenRequest());
     final bloc = context.read<RahbarBloc>();
@@ -81,7 +98,7 @@ class _RahbarDashboardPageState extends State<RahbarDashboardPage> {
   @override
   void dispose() {
     rahbarOpenRequest.removeListener(_onOpenRequest);
-    _dayWatcher.dispose();
+    AppDay.instance.removeListener(_onNewDay);
     super.dispose();
   }
 

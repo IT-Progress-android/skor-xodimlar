@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:skore_hodimlar/core/constants/api_constants.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/app_day.dart';
 import 'package:skore_hodimlar/core/utils/avatar_marker_helper.dart';
 import 'package:skore_hodimlar/core/widgets/location_disclosure_dialog.dart';
 import 'package:skore_hodimlar/features/rahbar/data/datasources/rahbar_remote_datasource.dart';
@@ -286,6 +288,7 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
     _loadAllBackendData();
     _fetchMyLocation();
     rahbarMapFocusStaff.addListener(_onFocusRequest);
+    AppDay.instance.addListener(_onNewDay);
     _animTimer = Timer.periodic(
       const Duration(milliseconds: 200),
       (_) => _animTick(),
@@ -316,8 +319,28 @@ class _RahbarRealtimeMapPageState extends State<RahbarRealtimeMapPage> {
   static const _livePollEvery = Duration(seconds: 10);
   DateTime _lastLivePollAt = DateTime.now();
 
+  /// 00:00 da xarita yangi kunni boshlaydi: kechagi davomat holatlari va
+  /// jonli izlar tashlanadi, hammasi qayta yuklanadi. "Bugungi" harakat
+  /// tarixi ochiq bo'lsa — yangi kun tarixi (bo'sh) ochiladi; qo'lda
+  /// tanlangan boshqa kun tarixi o'zgarmaydi.
+  void _onNewDay() {
+    if (!mounted) return;
+    final day = AppDay.instance;
+    final followsToday = day.wasToday(_historyDate);
+    _playback.retain(const {});
+    _dwellCache.clear();
+    final staff = _historyStaff;
+    if (staff != null && followsToday) {
+      unawaited(_loadStaffHistory(staff, date: day.today));
+    } else if (staff == null) {
+      _historyDate = day.today;
+    }
+    unawaited(_loadAllBackendData(silent: true));
+  }
+
   @override
   void dispose() {
+    AppDay.instance.removeListener(_onNewDay);
     rahbarMapFocusStaff.removeListener(_onFocusRequest);
     _autoRefreshTimer?.cancel();
     _animTimer?.cancel();

@@ -5,8 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/app_day.dart';
 import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
-import 'package:skore_hodimlar/core/utils/day_change_watcher.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_border_container.dart';
 import 'package:skore_hodimlar/core/widgets/pull_to_refresh.dart';
 import 'package:skore_hodimlar/features/rahbar/data/datasources/rahbar_remote_datasource.dart';
@@ -53,20 +53,36 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
     _selectedDate =
         widget.initialDate ?? DateTime(now.year, now.month, now.day);
     _selectedFilialId = widget.initialFilialId;
-    _dayWatcher = DayChangeWatcher(
-      onNewDay: (today) {
-        if (!mounted) return;
-        // Faqat "bugun" ko'rib turilgan bo'lsa — yangi kunga o'tiladi.
-        final yesterday = DateUtils.addDaysToDate(today, -1);
-        if (!DateUtils.isSameDay(_selectedDate, yesterday)) return;
-        setState(() => _selectedDate = today);
-        _fetchData();
-      },
-    );
+    AppDay.instance.addListener(_onNewDay);
     _fetchData();
   }
 
-  late final DayChangeWatcher _dayWatcher;
+  /// Faqat "bugun" ko'rib turilgan bo'lsa — yangi kunga o'tiladi.
+  void _onNewDay() {
+    if (!mounted) return;
+    final day = AppDay.instance;
+    if (!day.wasToday(_selectedDate)) return;
+    setState(() => _selectedDate = day.today);
+    // RahbarBloc umumiy: ustida boshqa sahifa ochiq bo'lsa, qaytganda.
+    if (TickerMode.valuesOf(context).enabled) {
+      _fetchData();
+    } else {
+      _reloadWhenShown = true;
+    }
+  }
+
+  bool _reloadWhenShown = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // TickerMode'ga bog'lanadi: tab/sahifa ko'ringanda qayta chaqiriladi.
+    final visible = TickerMode.valuesOf(context).enabled;
+    if (_reloadWhenShown && visible) {
+      _reloadWhenShown = false;
+      _fetchData();
+    }
+  }
 
   void _fetchData() {
     context.read<RahbarBloc>().add(
@@ -438,7 +454,7 @@ class _RahbarKundalikPageState extends State<RahbarKundalikPage> {
 
   @override
   void dispose() {
-    _dayWatcher.dispose();
+    AppDay.instance.removeListener(_onNewDay);
     _searchController.dispose();
     super.dispose();
   }

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:skore_hodimlar/core/constants/app_colors.dart';
 import 'package:skore_hodimlar/core/di/injection_container.dart';
 import 'package:skore_hodimlar/core/localization/app_localizations.dart';
+import 'package:skore_hodimlar/core/utils/app_day.dart';
 import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/features/rahbar/data/datasources/rahbar_remote_datasource.dart';
 import 'package:skore_hodimlar/features/rahbar/presentation/widgets/rahbar_empty_state_widget.dart';
@@ -27,6 +28,31 @@ class _RahbarKunlikPageState extends State<RahbarKunlikPage> {
     super.initState();
     _to = DateTime.now();
     _from = _to.subtract(const Duration(days: 30));
+    AppDay.instance.addListener(_onNewDay);
+  }
+
+  /// Oraliq "bugungacha" bo'lsa — 00:00 da yangi kunga suriladi.
+  void _onNewDay() {
+    final day = AppDay.instance;
+    final prev = day.previous;
+    if (!mounted || prev == null) return;
+    final r = shiftRangeToNewDay(
+      from: _from,
+      to: _to,
+      previous: prev,
+      today: day.today,
+    );
+    if (r == null) return;
+    setState(() {
+      _from = r.from;
+      _to = r.to;
+    });
+  }
+
+  @override
+  void dispose() {
+    AppDay.instance.removeListener(_onNewDay);
+    super.dispose();
   }
 
   Color _color(double foiz) =>
@@ -120,6 +146,8 @@ class _RahbarKunlikPageState extends State<RahbarKunlikPage> {
         elevation: 0,
       ),
       body: RahbarReportView(
+        // Oraliq o'zgarsa (yangi kun) — qayta yuklanadi.
+        key: ValueKey('${_fmt.format(_from)}_${_fmt.format(_to)}'),
         fetch: () => sl<RahbarRemoteDataSource>().getKunlik(
           from: _fmt.format(_from),
           to: _fmt.format(_to),

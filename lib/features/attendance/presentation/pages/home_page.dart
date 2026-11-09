@@ -14,6 +14,7 @@ import 'package:skore_hodimlar/core/localization/app_localizations.dart';
 import 'package:skore_hodimlar/core/services/app_update_service.dart';
 import 'package:skore_hodimlar/core/services/fcm_service.dart';
 import 'package:skore_hodimlar/core/services/gps_live_tracker_service.dart';
+import 'package:skore_hodimlar/core/utils/app_day.dart';
 import 'package:skore_hodimlar/core/utils/backend_text_mapper.dart';
 import 'package:skore_hodimlar/core/utils/date_formatter.dart';
 import 'package:skore_hodimlar/core/widgets/animated_rotating_ring.dart';
@@ -42,6 +43,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AppDay.instance.addListener(_onNewDay);
     _loadToday();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndRequestLocationPermission();
@@ -51,8 +53,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    AppDay.instance.removeListener(_onNewDay);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// 00:00 da ilova ochiq bo'lsa — bugungi davomat qayta yuklanadi
+  /// (kechagi "Keldim/Ketdim" holati qolib ketmasin).
+  void _onNewDay() {
+    if (!mounted || _phone == null) return;
+    context.read<AttendanceBloc>().add(LoadTodayAttendance(_phone!));
   }
 
   /// Ilova fondan qaytganda davomat yangilanadi: server orada avto-ketdi

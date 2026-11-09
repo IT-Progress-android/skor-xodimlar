@@ -21,6 +21,7 @@ import 'package:skore_hodimlar/core/services/network_connectivity_service.dart';
 import 'package:skore_hodimlar/core/services/notification_storage_service.dart';
 import 'package:skore_hodimlar/core/theme/app_theme.dart';
 import 'package:skore_hodimlar/core/theme/theme_cubit.dart';
+import 'package:skore_hodimlar/core/utils/app_day.dart';
 import 'package:skore_hodimlar/core/widgets/app_update_gate.dart';
 import 'package:skore_hodimlar/core/widgets/global_offline_banner.dart';
 import 'package:skore_hodimlar/features/applications/presentation/bloc/ariza_bloc.dart';
@@ -72,6 +73,9 @@ void main() async {
 
   // Internet aloqasini kuzatish xizmatini ishga tushiramiz
   NetworkConnectivityService.instance.init();
+  // Ilova bo'yicha "bugun": 00:00 da barcha kunga bog'liq sahifalar
+  // yangi kunga o'tadi.
+  AppDay.instance.start();
 
   // Initialize foreground task (must be called before startTracking)
   GpsLiveTrackerService.initForegroundTask();
